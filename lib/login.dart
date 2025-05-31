@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'employee_details_page.dart'; // Make sure this is imported
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -55,60 +53,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
       final uid = userCredential.user!.uid;
 
-      final docRef = FirebaseFirestore.instance.collection('employeeInfo').doc(uid);
-      final snapshot = await docRef.get();
-
-      if (!snapshot.exists) {
-        // First-time login: create blank employee profile
-        await docRef.set({
-          'JoiningDate': '',
-          'Manager': '',
-          'PhoneNumber': '',
-          'email': email,
-          'emergency_leave': 0,
-          'empId': uid,
-          'location': '',
-          'name': '',
-          'role': '',
-        });
-
-        // Navigate to employee details page with parameters
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EmployeeFormPage(
-              uid: uid,
-              email: email,
-            ),
-          ),
-        );
-      } else {
-        // Existing user: navigate to dashboard
-        Navigator.pushReplacementNamed(context, '/dashboard', arguments: uid);
-      }
+      Navigator.pushReplacementNamed(context, '/dashboard', arguments: uid);
     } on FirebaseAuthException catch (e) {
       String errorMessage;
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found for that email.';
-          break;
-        case 'wrong-password':
-          errorMessage = 'Incorrect password.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Invalid email address.';
-          break;
-        case 'network-request-failed':
-          errorMessage = 'No internet connection.';
-          break;
-        default:
-          errorMessage = 'Login failed. ${e.message}';
+      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        errorMessage = 'Incorrect email or password.';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email format.';
+      } else if (e.code == 'network-request-failed') {
+        errorMessage = 'No internet connection.';
+      } else {
+        errorMessage = 'Login failed. ${e.message}';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
       );
-    } catch (e) {
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Something went wrong. Please try again.'),
@@ -139,7 +100,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Logo Row
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -194,7 +154,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/forgot-password');
+                            },
                             child: const Text('Forgot Password?', style: TextStyle(fontSize: 13)),
                           ),
                         ),
@@ -208,6 +170,16 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           ),
                           child: const Text('Login', style: TextStyle(fontSize: 18)),
                         ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/signup');
+                          },
+                          child: const Text(
+                            "Don't have an account? Sign Up",
+                            style: TextStyle(color: Colors.deepPurple),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -220,4 +192,3 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     );
   }
 }
- 

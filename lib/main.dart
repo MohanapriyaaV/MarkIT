@@ -4,8 +4,8 @@ import 'firebase_options.dart';
 
 import 'login.dart';
 import 'dashboard.dart';
-// ✅ REMOVE this from routes and only import
-import 'employee_details_page.dart';
+import 'signup_page.dart'; // ✅ Import signup page (used in routes)
+import 'forgot_password.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,9 +31,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginPage(),
         '/dashboard': (context) => const DashboardPage(),
-
-        // ❌ REMOVE THIS LINE ↓↓↓ (static routing can't pass uid/email)
-        // '/employee_details': (context) => const EmployeeFormPage(),
+        '/signup': (context) => const SimpleSignUpPage(),
+        '/forgot-password': (context) => const ForgotPasswordPage(),
       },
     );
   }

@@ -20,10 +20,11 @@ class PendingLeaveRequestPage extends StatelessWidget {
 
       final firestore = FirebaseFirestore.instance;
 
-      // Fetch documents from leaveapplication collection
+      // Updated: Access nested subcollection 'userLeaves' under leaveapplication/{user.uid}
       final snapshot = await firestore
           .collection('leaveapplication')
-          .where('userID', isEqualTo: user.uid)
+          .doc(user.uid)
+          .collection('userLeaves')
           .where('status', isEqualTo: 'Pending')
           .get();
 
@@ -33,7 +34,7 @@ class PendingLeaveRequestPage extends StatelessWidget {
         final data = Map<String, dynamic>.from(doc.data());
         data['docId'] = doc.id;
         debugPrint('DEBUG: Document ID: ${doc.id}');
-        debugPrint('DEBUG: Document data: ${data}');
+        debugPrint('DEBUG: Document data: $data');
         return data;
       }).toList();
 
@@ -47,7 +48,6 @@ class PendingLeaveRequestPage extends StatelessWidget {
 
       debugPrint('DEBUG: Returning ${results.length} leave requests');
       return results;
-
     } catch (e, stackTrace) {
       debugPrint('DEBUG: Error fetching leaves: $e');
       debugPrint('DEBUG: Stack trace: $stackTrace');
@@ -57,7 +57,7 @@ class PendingLeaveRequestPage extends StatelessWidget {
 
   String formatDateTime(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
-    
+
     try {
       DateTime date;
       if (timestamp is Timestamp) {
@@ -120,7 +120,6 @@ class PendingLeaveRequestPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      // Trigger rebuild
                       (context as Element).reassemble();
                     },
                     child: const Text("Retry"),
@@ -141,7 +140,6 @@ class PendingLeaveRequestPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      // Trigger rebuild to retry
                       (context as Element).reassemble();
                     },
                     child: const Text("Refresh"),
@@ -233,7 +231,7 @@ class DetailPage extends StatelessWidget {
 
   String formatDateTime(dynamic timestamp) {
     if (timestamp == null) return 'N/A';
-    
+
     try {
       DateTime date;
       if (timestamp is Timestamp) {
@@ -252,14 +250,14 @@ class DetailPage extends StatelessWidget {
   int calculateDays(dynamic start, dynamic end) {
     try {
       DateTime startDate, endDate;
-      
+
       if (start is Timestamp && end is Timestamp) {
         startDate = start.toDate();
         endDate = end.toDate();
       } else {
         return 0;
       }
-      
+
       return endDate.difference(startDate).inDays + 1;
     } catch (e) {
       return 0;

@@ -84,47 +84,11 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
             .doc(widget.uid)
             .set(data, SetOptions(merge: true));
 
-        await showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                title: const Text("✅ Employee Info Submitted"),
-                content: SizedBox(
-                  width: double.maxFinite,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Name: $name"),
-                        Text("Designation: $designation"),
-                        Text("Department: $department"),
-                        Text("Email: ${widget.email}"),
-                        Text("Phone: $phone"),
-                        Text("Location: $location"),
-                        Text("Joining Date: ${_joiningDateController.text}"),
-                        Text("Manager: $manager"),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.pushReplacementNamed(
-                        context,
-                        '/dashboard',
-                        arguments: widget.uid,
-                      );
-                    },
-                    child: const Text('Continue'),
-                  ),
-                ],
-              ),
-        );
+        // Navigate to login page after successful submission
+        if (mounted) {
+          // <-- UPDATED NAVIGATION LINE HERE:
+          Navigator.pushReplacementNamed(context, '/');
+        }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -228,23 +192,21 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                         _buildTextField(
                           label: "Full Name",
                           icon: Icons.person,
-                          validator:
-                              (val) => val!.isEmpty ? "Enter name" : null,
+                          validator: (val) => val!.isEmpty ? "Enter name" : null,
                           onSaved: (val) => name = val?.trim(),
                         ),
                         _buildTextField(
                           label: "Designation",
                           icon: Icons.badge_outlined,
-                          validator:
-                              (val) =>
-                                  val!.isEmpty ? "Enter designation" : null,
+                          validator: (val) =>
+                              val!.isEmpty ? "Enter designation" : null,
                           onSaved: (val) => designation = val?.trim(),
                         ),
                         _buildTextField(
                           label: "Department",
                           icon: Icons.apartment,
-                          validator:
-                              (val) => val!.isEmpty ? "Enter department" : null,
+                          validator: (val) =>
+                              val!.isEmpty ? "Enter department" : null,
                           onSaved: (val) => department = val?.trim(),
                         ),
                         _buildTextField(
@@ -270,8 +232,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                         _buildTextField(
                           label: "Location / Address",
                           icon: Icons.location_on_outlined,
-                          validator:
-                              (val) => val!.isEmpty ? "Enter location" : null,
+                          validator: (val) => val!.isEmpty ? "Enter location" : null,
                           onSaved: (val) => location = val?.trim(),
                         ),
                         _buildTextField(
@@ -279,17 +240,15 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                           icon: Icons.date_range,
                           controller: _joiningDateController,
                           readOnly: true,
-                          validator:
-                              (val) => val!.isEmpty ? "Pick a date" : null,
+                          validator: (val) => val!.isEmpty ? "Pick a date" : null,
                           onSaved: (_) {},
                           onTap: _selectJoiningDate,
                         ),
                         _buildTextField(
                           label: "Manager Name",
                           icon: Icons.supervisor_account,
-                          validator:
-                              (val) =>
-                                  val!.isEmpty ? "Enter manager's name" : null,
+                          validator: (val) =>
+                              val!.isEmpty ? "Enter manager's name" : null,
                           onSaved: (val) => manager = val?.trim(),
                         ),
                         const SizedBox(height: 20),
