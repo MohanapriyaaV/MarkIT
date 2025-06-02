@@ -177,9 +177,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-              Color(0xFF6A5ACD),
+              Color(0xFF4A90E2),  // Lighter blue
+              Color(0xFF5C7CFA),  // Medium blue-purple
+              Color(0xFF7B68EE),  // Medium slate blue
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -195,14 +195,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                  // REDUCED PADDING: Changed from EdgeInsets.symmetric(horizontal: 20, vertical: 40) to vertical: 20
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Logo section
                       _buildAnimatedLogo(),
                       
-                      SizedBox(height: screenHeight * 0.05),
+                      // REDUCED SPACE BELOW LOGO: Changed from screenHeight * 0.05 to screenHeight * 0.02
+                      SizedBox(height: screenHeight * 0.01),
                       
                       // Login form
                       _buildLoginForm(screenWidth),
@@ -228,7 +230,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withOpacity(0.08),  // Reduced opacity
             ),
           ),
         ),
@@ -240,7 +242,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             height: 400,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withOpacity(0.03),  // Reduced opacity
             ),
           ),
         ),
@@ -252,7 +254,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             height: 150,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withOpacity(0.05),  // Reduced opacity
             ),
           ),
         ),
@@ -269,35 +271,35 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.only(right: 19),
               child: Image.asset(
                 'assets/images/VistaLogo1.png',
-                height: 80,
+                height: 100, // Increased from 100 to 130
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withOpacity(0.9),
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    child: const Icon(Icons.business, size: 40, color: Colors.white),
+                    child: const Icon(Icons.business, size: 65, color: Color(0xFF4A90E2)),
                   );
                 },
               ),
             ),
             Image.asset(
               'assets/images/VistaLogo2.png',
-              height: 80,
+              height: 150, // Increased from 100 to 150 (bigger than first logo)
               errorBuilder: (context, error, stackTrace) {
                 return Container(
-                  width: 80,
-                  height: 80,
+                  width: 150,
+                  height: 150,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.9),
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  child: const Icon(Icons.corporate_fare, size: 40, color: Colors.white),
+                  child: const Icon(Icons.corporate_fare, size: 75, color: Color(0xFF4A90E2)),
                 );
               },
             ),
@@ -318,20 +320,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             width: screenWidth * 0.85,
             constraints: const BoxConstraints(maxWidth: 350),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
+              color: Colors.white.withOpacity(0.85),  // Reduced opacity for less vibrant white
               borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),  // Added subtle border
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 25,
-                  offset: const Offset(0, 15),
-                  spreadRadius: 5,
+                  color: Colors.black.withOpacity(0.15),  // Reduced shadow intensity
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                  spreadRadius: 2,
                 ),
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.8),
-                  blurRadius: 20,
-                  offset: const Offset(-10, -10),
-                  spreadRadius: 2,
+                  color: Colors.white.withOpacity(0.4),  // Reduced highlight
+                  blurRadius: 15,
+                  offset: const Offset(-8, -8),
+                  spreadRadius: 1,
                 ),
               ],
             ),
@@ -390,7 +393,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         Navigator.pushNamed(context, '/forgot-password');
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF6A5ACD),
+                        foregroundColor: const Color(0xFF5C7CFA),
                       ),
                       child: const Text(
                         'Forgot Password?',
@@ -435,7 +438,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       Navigator.pushNamed(context, '/signup');
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF6A5ACD),
+                      foregroundColor: const Color(0xFF5C7CFA),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: RichText(
@@ -449,7 +452,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                           TextSpan(
                             text: 'Sign Up',
                             style: TextStyle(
-                              color: Color(0xFF6A5ACD),
+                              color: Color(0xFF5C7CFA),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -478,9 +481,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: Colors.grey.withOpacity(0.08),  // Reduced shadow
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -492,7 +495,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         decoration: InputDecoration(
           labelText: labelText,
           labelStyle: TextStyle(color: Colors.grey[600]),
-          prefixIcon: Icon(prefixIcon, color: const Color(0xFF6A5ACD)),
+          prefixIcon: Icon(prefixIcon, color: const Color(0xFF5C7CFA)),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
@@ -507,14 +510,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 )
               : null,
           filled: true,
-          fillColor: Colors.grey[50],
+          fillColor: Colors.grey[50]?.withOpacity(0.8),  // Made slightly transparent
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: const BorderSide(color: Color(0xFF6A5ACD), width: 2),
+            borderSide: const BorderSide(color: Color(0xFF5C7CFA), width: 2),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
@@ -527,13 +530,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         gradient: const LinearGradient(
-          colors: [Color(0xFF6A5ACD), Color(0xFF9370DB)],
+          colors: [Color(0xFF5C7CFA), Color(0xFF7B68EE)],  // Updated gradient colors
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6A5ACD).withOpacity(0.4),
+            color: const Color(0xFF5C7CFA).withOpacity(0.4),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
