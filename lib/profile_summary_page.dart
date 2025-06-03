@@ -24,31 +24,31 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   void initState() {
     super.initState();
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _slideController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _profileController = AnimationController(
+    _slideController = AnimationController(
       duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _profileController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOutQuart));
 
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
+      begin: const Offset(0, 0.15),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
 
-    _profileAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _profileAnimation = Tween<double>(begin: 0.7, end: 1.0).animate(
       CurvedAnimation(parent: _profileController, curve: Curves.elasticOut),
     );
 
@@ -84,10 +84,10 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
         });
         // Staggered animations
         _fadeController.forward();
-        Future.delayed(const Duration(milliseconds: 200), () {
+        Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) _slideController.forward();
         });
-        Future.delayed(const Duration(milliseconds: 400), () {
+        Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) _profileController.forward();
         });
       } else {
@@ -114,7 +114,11 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF6B73FF), Color(0xFF9575CD), Color(0xFF4DD0E1)],
+              colors: [
+                Color(0xFF6B73FF),
+                Color(0xFF9575CD),
+                Color(0xFF4DD0E1),
+              ],
             ),
           ),
           child: Center(
@@ -122,32 +126,42 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 30,
+                        offset: const Offset(0, 15),
                       ),
                     ],
                   ),
                   child: const CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF6366F1),
+                      Color(0xFF6B73FF),
                     ),
-                    strokeWidth: 3,
+                    strokeWidth: 4,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Text(
-                  "Loading Profile...",
+                  "Loading Your Profile...",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Please wait a moment",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -164,7 +178,11 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF6B73FF), Color(0xFF9575CD), Color(0xFF4DD0E1)],
+              colors: [
+                Color(0xFF6B73FF),
+                Color(0xFF9575CD),
+                Color(0xFF4DD0E1),
+              ],
             ),
           ),
           child: Center(
@@ -172,37 +190,37 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 30,
+                        offset: const Offset(0, 15),
                       ),
                     ],
                   ),
                   child: const Icon(
                     Icons.person_off_outlined,
-                    size: 64,
-                    color: Colors.white70,
+                    size: 72,
+                    color: Color(0xFF64748B),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
                 const Text(
-                  "No employee data found",
+                  "No Profile Data Found",
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 20,
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 const Text(
                   "Please contact your administrator",
-                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
                 ),
               ],
             ),
@@ -225,9 +243,13 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF6B73FF),
+              Color(0xFF9575CD),
+              Color(0xFF4DD0E1),
+            ],
           ),
         ),
         child: SafeArea(
@@ -259,11 +281,6 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
                           const SizedBox(height: 24),
 
-                          // Quick Stats Row
-                          _buildQuickStats(),
-
-                          const SizedBox(height: 20),
-
                           // Contact Information
                           _buildEnhancedContactSection(email, phoneNumber),
 
@@ -276,6 +293,8 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                             joiningDate,
                             currentManager,
                           ),
+
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
@@ -292,26 +311,13 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   Widget _buildEnhancedAppBar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Material(
               color: Colors.transparent,
@@ -322,7 +328,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                   padding: EdgeInsets.all(12),
                   child: Icon(
                     Icons.arrow_back_ios_new,
-                    color: Color(0xFF475569),
+                    color: Colors.white,
                     size: 20,
                   ),
                 ),
@@ -344,17 +350,9 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
           ),
           Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4DD0E1), Color(0xFF29B6F6)],
-              ),
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4DD0E1).withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              border: Border.all(color: Colors.white.withOpacity(0.3)),
             ),
             child: Material(
               color: Colors.transparent,
@@ -386,109 +384,114 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-            spreadRadius: 0,
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Enhanced Profile Image
+          // Profile Image with Circular Background
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              color: const Color(0xFF6B73FF).withOpacity(0.1),
+              border: Border.all(
+                color: const Color(0xFF6B73FF).withOpacity(0.2),
+                width: 2,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
             ),
-            padding: const EdgeInsets.all(4),
-            child: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-              ),
-              padding: const EdgeInsets.all(4),
-              child: CircleAvatar(
-                radius: 52,
-                backgroundImage: const AssetImage('assets/images/image.png'),
-                backgroundColor: const Color(0xFFF1F5F9),
-              ),
+            padding: const EdgeInsets.all(20),
+            child: const Icon(
+              Icons.person,
+              size: 60,
+              color: Color(0xFF6B73FF),
             ),
           ),
 
           const SizedBox(height: 24),
 
-          // Enhanced Name with Gradient
-          ShaderMask(
-            shaderCallback:
-                (bounds) => const LinearGradient(
-                  colors: [Color(0xFF1E293B), Color(0xFF475569)],
-                ).createShader(bounds),
-            child: Text(
-              name,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.5,
-              ),
-              textAlign: TextAlign.center,
+          // Welcome Text
+          const Text(
+            "Welcome back,",
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          // Enhanced Designation with Glassmorphism
+          // Employee Name
+          Text(
+            name,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B),
+              letterSpacing: 0.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 16),
+
+          // Date
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              "Monday, June 2, 2025",
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF475569),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Designation
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF4DD0E1).withOpacity(0.15),
-                  const Color(0xFF9575CD).withOpacity(0.15),
+                  const Color(0xFF6B73FF).withOpacity(0.1),
+                  const Color(0xFF9575CD).withOpacity(0.1),
                 ],
               ),
-              borderRadius: BorderRadius.circular(25),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF4DD0E1).withOpacity(0.3),
-                width: 1.5,
+                color: const Color(0xFF6B73FF).withOpacity(0.2),
+                width: 1,
               ),
             ),
             child: Text(
               designation,
               style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF4DD0E1),
+                fontSize: 16,
+                color: Color(0xFF6B73FF),
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
               ),
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Department with Icon
+          // Department
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -499,17 +502,10 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4DD0E1).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(
-                    Icons.business_outlined,
-                    size: 14,
-                    color: Color(0xFF4DD0E1),
-                  ),
+                const Icon(
+                  Icons.business_outlined,
+                  size: 16,
+                  color: Color(0xFF64748B),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -528,100 +524,16 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
     );
   }
 
-  Widget _buildQuickStats() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            "Years",
-            "2.5",
-            Icons.timeline_outlined,
-            const Color(0xFF10B981),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            "Projects",
-            "12",
-            Icons.folder_outlined,
-            const Color(0xFF8B5CF6),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            "Team",
-            "8",
-            Icons.group_outlined,
-            const Color(0xFF06B6D4),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEnhancedContactSection(String email, String phoneNumber) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -633,16 +545,14 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF6B73FF).withOpacity(0.1),
                 ),
+                padding: const EdgeInsets.all(8),
                 child: const Icon(
                   Icons.contact_phone_outlined,
-                  color: Colors.white,
+                  color: Color(0xFF6B73FF),
                   size: 16,
                 ),
               ),
@@ -662,14 +572,14 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             Icons.email_outlined,
             "Email Address",
             email,
-            const Color(0xFF6366F1),
+            const Color(0xFF6B73FF),
           ),
           const SizedBox(height: 16),
           _buildEnhancedInfoRow(
             Icons.phone_outlined,
             "Phone Number",
             phoneNumber,
-            const Color(0xFF8B5CF6),
+            const Color(0xFF9575CD),
           ),
         ],
       ),
@@ -686,11 +596,11 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -702,16 +612,14 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF10B981), Color(0xFF06B6D4)],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF4DD0E1).withOpacity(0.1),
                 ),
+                padding: const EdgeInsets.all(8),
                 child: const Icon(
                   Icons.work_outline,
-                  color: Colors.white,
+                  color: Color(0xFF4DD0E1),
                   size: 16,
                 ),
               ),
@@ -731,21 +639,21 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             Icons.badge_outlined,
             "Employee ID",
             employeeId,
-            const Color(0xFF10B981),
+            const Color(0xFF4DD0E1),
           ),
           const SizedBox(height: 16),
           _buildEnhancedInfoRow(
             Icons.location_on_outlined,
             "Location",
             location,
-            const Color(0xFF06B6D4),
+            const Color(0xFF6B73FF),
           ),
           const SizedBox(height: 16),
           _buildEnhancedInfoRow(
             Icons.calendar_today_outlined,
             "Joining Date",
             joiningDate,
-            const Color(0xFFF59E0B),
+            const Color(0xFF9575CD),
           ),
           if (currentManager != null) ...[
             const SizedBox(height: 16),
@@ -753,7 +661,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
               Icons.person_outline,
               "Reporting Manager",
               currentManager,
-              const Color(0xFF8B5CF6),
+              const Color(0xFF4DD0E1),
             ),
           ],
         ],
@@ -770,7 +678,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.04),
+        color: color.withOpacity(0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withOpacity(0.1), width: 1),
       ),

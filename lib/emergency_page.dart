@@ -34,16 +34,20 @@ class _EmergencyLeavePageState extends State<EmergencyLeavePage>
   late Animation<double> _successIconScale;
   late Animation<double> _successIconOpacity;
 
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
 
     _iconBounceController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     )..repeat(reverse: true);
 
-    _iconBounceAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+    _iconBounceAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _iconBounceController, curve: Curves.easeInOut),
     );
 
@@ -52,7 +56,7 @@ class _EmergencyLeavePageState extends State<EmergencyLeavePage>
       vsync: this,
     )..repeat(reverse: true);
 
-    _buttonGlowAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+    _buttonGlowAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _buttonGlowController, curve: Curves.easeInOut),
     );
 
@@ -71,6 +75,29 @@ class _EmergencyLeavePageState extends State<EmergencyLeavePage>
     _successIconOpacity = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _successIconController, curve: Curves.easeIn),
     );
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOut,
+    ));
+
+    _slideController.forward();
   }
 
   @override
@@ -78,20 +105,35 @@ class _EmergencyLeavePageState extends State<EmergencyLeavePage>
     _iconBounceController.dispose();
     _buttonGlowController.dispose();
     _successIconController.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 
   Future<void> applyLeave() async {
     if (selectedReason == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a reason for leave')),
+        SnackBar(
+          content: const Text('Please select a reason for leave'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
       return;
     }
 
     if (availableLeaves <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No emergency leaves available')),
+        SnackBar(
+          content: const Text('No emergency leaves available'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
       return;
     }
@@ -127,253 +169,453 @@ class _EmergencyLeavePageState extends State<EmergencyLeavePage>
       await showDialog(
         context: context,
         barrierDismissible: false,
-        builder:
-            (ctx) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 20,
+          shadowColor: const Color(0xFF6366F1).withOpacity(0.3),
+          contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedBuilder(
+                animation: _successIconController,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _successIconOpacity.value,
+                    child: Transform.scale(
+                      scale: _successIconScale.value,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ),
               ),
-              backgroundColor: Colors.white.withOpacity(0.95),
-              contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedBuilder(
-                    animation: _successIconController,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _successIconOpacity.value,
-                        child: Transform.scale(
-                          scale: _successIconScale.value,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: const Icon(
-                      Icons.check_circle,
-                      color: Color.fromARGB(255, 170, 61, 156),
-                      size: 70,
+              const SizedBox(height: 20),
+              const Text(
+                'Leave Applied Successfully!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF6366F1).withOpacity(0.2),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildInfoRow('Leave Type:', leaveType),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Applied Time:', formattedTime),
+                    const SizedBox(height: 8),
+                    _buildInfoRow('Remaining Leaves:', '$availableLeaves'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => const DashboardPage(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Leave Applied',
+                  child: const Text(
+                    'Continue to Dashboard',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Your emergency leave has been successfully applied as a $leaveType leave.\n'
-                    'Applied time: $formattedTime\n\n'
-                    'Remaining leaves: $availableLeaves',
-                    style: const TextStyle(fontSize: 16, color: Colors.black87),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 18),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => const DashboardPage(),
-                        ),
-                        (route) => false,
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 10,
-                      ),
-                      backgroundColor: const Color.fromARGB(255, 184, 56, 173),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text('OK', style: TextStyle(fontSize: 16)),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                ),
               ),
-            ),
+            ],
+          ),
+        ),
       );
 
       _successIconController.reset();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error applying leave: ${e.toString()}')),
+        SnackBar(
+          content: Text('Error applying leave: ${e.toString()}'),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
     }
   }
 
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text('Apply Emergency Leave'),
-        backgroundColor: Colors.deepPurple[400],
-        elevation: 4,
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 36),
-            child: Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.15),
-                    blurRadius: 25,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedBuilder(
-                    animation: _iconBounceAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _iconBounceAnimation.value,
-                        child: child,
-                      );
-                    },
-                    child: Container(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF6366F1), // Indigo
+              Color(0xFF8B5CF6), // Purple
+              Color(0xFFA855F7), // Purple
+              Color(0xFF06B6D4), // Cyan
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.deepPurple[50],
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.deepPurple.withOpacity(0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    const Expanded(
+                      child: Text(
+                        'Emergency Leave',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48), // Balance the back button
+                  ],
+                ),
+              ),
+              
+              // Main Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        children: [
+                          // Available Leaves Card
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                AnimatedBuilder(
+                                  animation: _iconBounceAnimation,
+                                  builder: (context, child) {
+                                    return Transform.scale(
+                                      scale: _iconBounceAnimation.value,
+                                      child: child,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Colors.white,
+                                      size: 48,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Available Emergency Leaves',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '$availableLeaves',
+                                  style: const TextStyle(
+                                    fontSize: 48,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+
+                          // Reason Selection Card
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Select Reason for Emergency Leave',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: DropdownButtonFormField<String>(
+                                    value: selectedReason,
+                                    hint: Text(
+                                      'Choose a reason',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    dropdownColor: Colors.white,
+                                    items: reasons
+                                        .map(
+                                          (reason) => DropdownMenuItem(
+                                            value: reason,
+                                            child: Text(
+                                              reason,
+                                              style: const TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (val) {
+                                      setState(() {
+                                        selectedReason = val;
+                                      });
+                                    },
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 16),
+                                    ),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 40),
+
+                          // Apply Button
+                          AnimatedBuilder(
+                            animation: _buttonGlowAnimation,
+                            builder: (context, child) {
+                              return Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.white.withOpacity(_buttonGlowAnimation.value),
+                                      Colors.white.withOpacity(_buttonGlowAnimation.value * 0.9),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.3),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: ElevatedButton.icon(
+                                  onPressed: applyLeave,
+                                  icon: const Icon(
+                                    Icons.send_rounded,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'Apply Emergency Leave',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor: const Color(0xFF6366F1),
+                                    shadowColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 40),
                         ],
                       ),
-                      padding: const EdgeInsets.all(16),
-                      child: const Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.deepPurple,
-                        size: 72,
-                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  Text(
-                    'Available Emergency Leaves',
-                    style: theme.textTheme.titleMedium!.copyWith(
-                      color: Colors.deepPurple[700],
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '$availableLeaves',
-                    style: theme.textTheme.headlineLarge!.copyWith(
-                      color: Colors.deepPurple[900],
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Select Reason for Emergency Leave',
-                      style: theme.textTheme.titleMedium!.copyWith(
-                        color: Colors.deepPurple[800],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: Colors.deepPurple[50],
-                      border: Border.all(color: Colors.deepPurple.shade200),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: DropdownButtonFormField<String>(
-                      value: selectedReason,
-                      hint: Text(
-                        'Choose a reason',
-                        style: TextStyle(color: Colors.deepPurple.shade300),
-                      ),
-                      dropdownColor: Colors.white,
-                      items: reasons
-                          .map(
-                            (reason) => DropdownMenuItem(
-                              value: reason,
-                              child: Text(
-                                reason,
-                                style: TextStyle(color: Colors.deepPurple[900]),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          selectedReason = val;
-                        });
-                      },
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                      ),
-                      style: TextStyle(
-                        color: Colors.deepPurple[900],
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-
-                  AnimatedBuilder(
-                    animation: _buttonGlowAnimation,
-                    builder: (context, child) {
-                      return ElevatedButton.icon(
-                        onPressed: applyLeave,
-                        icon: const Icon(Icons.send_rounded),
-                        label: const Text(
-                          'Apply Emergency Leave',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          backgroundColor: Colors.deepPurple
-                              .withOpacity(_buttonGlowAnimation.value),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          elevation: 12,
-                          shadowColor: Colors.deepPurpleAccent.withOpacity(0.6),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
