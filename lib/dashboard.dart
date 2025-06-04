@@ -457,32 +457,32 @@ class _DashboardPageState extends State<DashboardPage>
         );
       }
     } else if (item.title == "Attendance Overview") {
-      final String? empId =
-          ModalRoute.of(context)?.settings.arguments as String?;
-      if (empId != null) {
-        Navigator.push(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                AttendanceOverviewPage(empId: empId),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.3),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-      }
-    } else {
+  final String? empId =
+      ModalRoute.of(context)?.settings.arguments as String?;
+  if (empId != null) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AttendanceOverviewScreen(empId: empId),
+        transitionsBuilder:
+            (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.3),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+} else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Navigating to ${item.title}..."),

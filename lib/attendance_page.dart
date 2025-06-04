@@ -1,7 +1,9 @@
+// attendance_page.dart
 import 'dart:ui'; // for BackdropFilter
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../models/attendance_model.dart';
+import '../services/attendance_service.dart';
 
 class AttendancePage extends StatefulWidget {
   final String empId;
@@ -13,13 +15,21 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage>
     with TickerProviderStateMixin {
+  final AttendanceService _attendanceService = AttendanceService();
+
   bool _attendanceMarked = false;
   bool _isSunday = false;
   bool _isEligibleTime = false;
+  bool _isLoading = false;
 
   String _statusMessage = "";
   String? _employeeName;
   String? _remark;
+  String? _currentSession;
+  bool _isEarly = false;
+  bool _isLateFN = false;
+  bool _isTooLate = false;
+  Duration? _timeRemaining;
 
   late final AnimationController _animationController;
   late final AnimationController _pulseController;
@@ -33,25 +43,23 @@ class _AttendancePageState extends State<AttendancePage>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(vsync: this, duration: animDur);
     _scaleAnimation = CurvedAnimation(
-      parent: _animationController, 
-      curve: Curves.elasticOut
+      parent: _animationController,
+      curve: Curves.elasticOut,
     );
-    
-    _pulseController = AnimationController(
-      vsync: this, 
-      duration: const Duration(milliseconds: 1500)
-    );
+
+    _pulseController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut)
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _animationController.forward();
     _pulseController.repeat(reverse: true);
 
-    fetchEmployeeName();
+    _fetchEmployeeName();
     _checkEligibility();
   }
 
@@ -62,102 +70,87 @@ class _AttendancePageState extends State<AttendancePage>
     super.dispose();
   }
 
-  Future<void> fetchEmployeeName() async {
+  Future<void> _fetchEmployeeName() async {
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('employeeInfo')
-          .doc(widget.empId)
-          .get();
-      setState(() => _employeeName = snap.data()?['name'] ?? 'Employee');
-    } catch (_) {
+      final employee = await _attendanceService.fetchEmployeeData(widget.empId);
+      setState(() => _employeeName = employee?.name ?? 'Employee');
+    } catch (e) {
       setState(() => _employeeName = 'Employee');
     }
   }
 
   void _checkEligibility() {
-    final now = DateTime.now();
-    _isSunday = now.weekday == DateTime.sunday;
-
-    _isEligibleTime = (now.hour >= 12) ||
-        (now.hour > 7) ||
-        (now.hour == 7 && now.minute >= 0);
-    setState(() {});
+    final eligibility = _attendanceService.checkEligibility();
+    setState(() {
+      _isSunday = eligibility.isSunday;
+      _isEligibleTime = eligibility.isEligibleTime;
+      _currentSession = eligibility.session;
+      _isEarly = eligibility.isEarly;
+      _isLateFN = eligibility.isLateFN;
+      _isTooLate = eligibility.isTooLate;
+      _timeRemaining = eligibility.timeRemaining;
+      
+      if (!eligibility.isEligibleTime && eligibility.lateMessage != null) {
+        _statusMessage = eligibility.lateMessage!;
+      }
+    });
   }
 
-  Future<void> markAttendance() async {
-    final firestore = FirebaseFirestore.instance;
-    final uid = widget.empId.trim();
-    final now = DateTime.now();
-    final today = DateFormat('yyyy-MM-dd').format(now);
-    final month = DateFormat('yyyy-MM').format(now);
+  Future<void> _markAttendance() async {
+    if (_isLoading) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final eligibility = _attendanceService.checkEligibility();
 
-    if (now.hour < 8 || (now.hour == 8 && now.minute < 30)) {
-      await _askForRemark();
-    }
-
-    String session;
-    if (now.hour < 9 || (now.hour == 9 && now.minute <= 5)) {
-      session = "FN";
-    } else {
-      if (now.hour < 13 || (now.hour == 13 && now.minute < 5)) {
-        _statusMessage =
-            "⏰ Too late for FN – marked absent for FN, marking AN.";
+      if (eligibility.isEarly) {
+        await _askForRemark();
       }
-      session = "AN";
-    }
 
-    final docRef = firestore.collection('attendance').doc(uid);
-    final rec = {
-      'timestamp': now,
-      'remark': _remark ?? '',
-      session: true,
-    };
+      final statusMessage =
+          await _attendanceService.markAttendance(widget.empId, _remark);
 
-    final doc = await docRef.get();
-    if (doc.exists) {
-      final data = doc.data() as Map<String, dynamic>;
-      final records = Map<String, dynamic>.from(data['records'] ?? {});
-      final day = Map<String, dynamic>.from(records[today] ?? {});
-      day.addAll(rec);
-      records[today] = day;
-      await docRef.update({'records': records});
-    } else {
-      await docRef.set({
-        'empId': uid,
-        'records': {today: rec},
+      setState(() {
+        _attendanceMarked = true;
+        _statusMessage = statusMessage;
+        _isLoading = false;
       });
-    }
 
-    final q = await firestore
-        .collection('monthly_attendance_summaries')
-        .where('empId', isEqualTo: uid)
-        .where('month', isEqualTo: month)
-        .limit(1)
-        .get();
-    if (q.docs.isNotEmpty) {
-      await q.docs.first.reference.update({'count': FieldValue.increment(1)});
-    } else {
-      await firestore.collection('monthly_attendance_summaries').add({
-        'empId': uid,
-        'month': month,
-        'count': 1,
+      // Show success message and navigate after delay
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(statusMessage),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/dashboard',
+            arguments: widget.empId,
+          );
+        }
       });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to mark attendance: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-
-    setState(() {
-      _attendanceMarked = true;
-      _statusMessage = "✅ Marked present for $session session!";
-    });
-
-    Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pushReplacementNamed(context, '/dashboard', arguments: uid);
-    });
   }
 
   Future<void> _askForRemark() async {
     final controller = TextEditingController();
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
@@ -174,40 +167,57 @@ class _AttendancePageState extends State<AttendancePage>
             const SizedBox(width: 16),
             const Expanded(
               child: Text(
-                "You're early!",
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+                "Early Attendance",
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
             ),
           ],
         ),
-        content: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: TextField(
-            controller: controller,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: "Please provide reason for early login...",
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.all(16),
-              hintStyle: TextStyle(color: Colors.grey),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "You're marking attendance early. Please provide a reason:",
+              style: TextStyle(fontSize: 14, color: Colors.black87),
             ),
-          ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: TextField(
+                controller: controller,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: "Reason for early attendance...",
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(16),
+                  hintStyle: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              _remark = "";
+              Navigator.pop(context);
+            },
+            child: const Text("Skip"),
+          ),
           SizedBox(
-            width: double.infinity,
+            width: 120,
             child: ElevatedButton(
               onPressed: () {
-                _remark = controller.text;
+                _remark = controller.text.trim();
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
@@ -216,7 +226,7 @@ class _AttendancePageState extends State<AttendancePage>
               child: const Text(
                 "Submit",
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -253,6 +263,10 @@ class _AttendancePageState extends State<AttendancePage>
             ),
           ),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Stack(
         children: [
@@ -271,7 +285,6 @@ class _AttendancePageState extends State<AttendancePage>
               ),
             ),
           ),
-          
           SafeArea(
             child: ScaleTransition(
               scale: _scaleAnimation,
@@ -280,7 +293,6 @@ class _AttendancePageState extends State<AttendancePage>
                 child: Column(
                   children: [
                     const SizedBox(height: 40),
-                    
                     // Welcome Card
                     Container(
                       width: double.infinity,
@@ -349,9 +361,39 @@ class _AttendancePageState extends State<AttendancePage>
                         ],
                       ),
                     ),
-                    
                     const SizedBox(height: 32),
-                    
+                    // Session Info Card
+                    if (_currentSession != null && _isEligibleTime)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          color: accentColor.withOpacity(0.1),
+                          border: Border.all(color: accentColor.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _currentSession == 'FN' ? Icons.wb_sunny : Icons.wb_twilight,
+                              color: accentColor,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "Current Session: ${_currentSession == 'FN' ? 'Forenoon' : 'Afternoon'}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     // Main Action Card
                     Container(
                       width: double.infinity,
@@ -372,9 +414,7 @@ class _AttendancePageState extends State<AttendancePage>
                         child: _buildActionContent(),
                       ),
                     ),
-                    
                     const SizedBox(height: 32),
-                    
                     // Quick Stats Card
                     Container(
                       width: double.infinity,
@@ -433,10 +473,175 @@ class _AttendancePageState extends State<AttendancePage>
     );
   }
 
+  Widget _buildActionContent() {
+    if (_isSunday) {
+      return Column(
+        children: [
+          Icon(
+            Icons.weekend_rounded,
+            size: 48,
+            color: Colors.orange,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "It's Sunday!",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Enjoy your weekend. No attendance needed today.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      );
+    } else if (_attendanceMarked) {
+      return Column(
+        children: [
+          const Icon(
+            Icons.check_circle_rounded,
+            size: 48,
+            color: Colors.green,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Success!",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: Colors.green,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _statusMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      );
+    } else if (_isEligibleTime) {
+      return Column(
+        children: [
+          ScaleTransition(
+            scale: _pulseAnimation,
+            child: ElevatedButton.icon(
+              icon: _isLoading 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.fingerprint_rounded),
+              label: Text(
+                _isLoading ? "Marking..." : "Mark Attendance",
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              onPressed: _isLoading ? null : _markAttendance,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 8,
+                shadowColor: primaryColor.withOpacity(0.4),
+              ),
+            ),
+          ),
+          if (_isEarly) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "You're early! You'll be asked for a reason.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          Icon(
+            _isLateFN || _isTooLate ? Icons.schedule_rounded : Icons.schedule_rounded,
+            size: 48,
+            color: _isLateFN ? Colors.orange : Colors.red,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _isLateFN ? "Session Missed" : "Outside Window",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: _isLateFN ? Colors.orange : Colors.red,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _statusMessage.isNotEmpty 
+              ? _statusMessage 
+              : "You are not within the attendance window. Please try later.",
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Attendance Hours:\nFN: 7:00 AM - 9:05 AM\nAN: 12:00 PM - 1:05 PM",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black54,
+              height: 1.5,
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
   Widget _buildStatItem(IconData icon, String title, String value, Color color) {
     return Column(
       children: [
-        Icon(icon, color: Colors.black87, size: 24),
+        Icon(icon, color: color, size: 24),
         const SizedBox(height: 8),
         Text(
           value,
@@ -454,216 +659,6 @@ class _AttendancePageState extends State<AttendancePage>
             color: Colors.black54,
             fontWeight: FontWeight.w500,
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionContent() {
-    if (_isSunday) {
-      return Column(
-        key: const ValueKey('sunday'),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.orange.withOpacity(0.1),
-            ),
-            child: const Icon(
-              Icons.weekend_rounded,
-              size: 48,
-              color: Colors.orange,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "🎉 It's Sunday!",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Colors.orange,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Enjoy your day off and recharge for the week ahead!",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              height: 1.5,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (!_isEligibleTime) {
-      return Column(
-        key: const ValueKey('not-eligible'),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.blue.withOpacity(0.1),
-            ),
-            child: const Icon(
-              Icons.schedule_rounded,
-              size: 48,
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "⏰ Not Yet Time",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "Attendance portal opens at:\n• 07:00 for Morning Session\n• 12:00 for Afternoon Session",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              height: 1.6,
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_attendanceMarked) {
-      return Column(
-        key: const ValueKey('marked'),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.green.withOpacity(0.1),
-            ),
-            child: const Icon(
-              Icons.check_circle_outline_rounded,
-              size: 56,
-              color: Colors.green,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "✅ All Set!",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: Colors.green,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _statusMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500,
-              height: 1.5,
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      key: const ValueKey('button'),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [primaryColor.withOpacity(0.1), accentColor.withOpacity(0.1)],
-            ),
-          ),
-          child: Icon(
-            Icons.fingerprint_rounded,
-            size: 48,
-            color: primaryColor,
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          "Ready to Mark Attendance?",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          "Tap the button below to record your presence",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 28),
-        AnimatedBuilder(
-          animation: _pulseAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _pulseAnimation.value,
-              child: Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: [primaryColor, accentColor],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryColor.withOpacity(0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: markAttendance,
-                  icon: const Icon(
-                    Icons.touch_app_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                  label: const Text(
-                    "Mark My Attendance",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
         ),
       ],
     );
