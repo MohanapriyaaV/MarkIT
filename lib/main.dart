@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'user/frontend/firebase_options.dart';
 
-import 'login.dart';
-import 'dashboard.dart';
-import 'signup_page.dart'; // ✅ Import signup page (used in routes)
-import 'forgot_password.dart';
+import 'user/frontend/login.dart';
+import 'user/frontend/dashboard.dart';
+import 'user/frontend/signup_page.dart'; // ✅ Import signup page (used in routes)
+import 'user/frontend/forgot_password.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

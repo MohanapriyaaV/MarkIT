@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../services/profile_summary_service.dart';
+import '../models/profile_summary_model.dart';
 
 class ProfileSummaryPage extends StatefulWidget {
   const ProfileSummaryPage({super.key});
@@ -11,14 +11,17 @@ class ProfileSummaryPage extends StatefulWidget {
 
 class _ProfileSummaryPageState extends State<ProfileSummaryPage>
     with TickerProviderStateMixin {
-  Map<String, dynamic>? employeeData;
+  Employee? employee;
   bool isLoading = true;
+  String? errorMessage;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late AnimationController _profileController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _profileAnimation;
+
+  final EmployeeService _employeeService = EmployeeService();
 
   @override
   void initState() {
@@ -65,23 +68,14 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
   Future<void> fetchEmployeeData() async {
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-
-      if (uid == null) {
-        throw Exception("User not logged in.");
-      }
-
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('employeeInfo')
-              .doc(uid)
-              .get();
-
-      if (doc.exists) {
-        setState(() {
-          employeeData = doc.data();
-          isLoading = false;
-        });
+      final employeeData = await _employeeService.fetchEmployeeData();
+      
+      setState(() {
+        employee = employeeData;
+        isLoading = false;
+      });
+      
+      if (employeeData != null) {
         // Staggered animations
         _fadeController.forward();
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -90,16 +84,10 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) _profileController.forward();
         });
-      } else {
-        setState(() {
-          employeeData = {};
-          isLoading = false;
-        });
       }
     } catch (e) {
-      print("🔥 Error fetching employee data: $e");
       setState(() {
-        employeeData = {};
+        errorMessage = e.toString();
         isLoading = false;
       });
     }
@@ -171,7 +159,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
       );
     }
 
-    if (employeeData == null || employeeData!.isEmpty) {
+    if (employee == null) {
       return Scaffold(
         body: Container(
           decoration: const BoxDecoration(
@@ -229,15 +217,14 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
       );
     }
 
-    final String employeeName = employeeData!['name'] ?? 'N/A';
-    final String designation = employeeData!['role'] ?? 'N/A';
-    final String department = employeeData!['department'] ?? 'N/A';
-    final String joiningDate = employeeData!['JoiningDate'] ?? 'N/A';
-    final String employeeId = "VistaES01";
-    final String email = employeeData!['email'] ?? 'N/A';
-    final String phoneNumber = employeeData!['phoneNumber'] ?? 'N/A';
-    final String location = employeeData!['location'] ?? 'N/A';
-    final String? currentManager = employeeData!['Manager'];
+    final String employeeName = employee!.name ?? 'N/A';
+    final String designation = employee!.role ?? 'N/A';
+    final String domain = employee!.domain ?? 'N/A';
+    final String joiningDate = employee!.joiningDate ?? 'N/A';
+    final String employeeId = employee!.empId;
+    final String email = employee!.email;
+    final String phoneNumber = employee!.phoneNumber ?? 'N/A';
+    final String location = employee!.location ?? 'N/A';
 
     return Scaffold(
       body: Container(
@@ -275,7 +262,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                             child: _buildEnhancedProfileHeader(
                               employeeName,
                               designation,
-                              department,
+                              domain,
                             ),
                           ),
 
@@ -291,7 +278,6 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                             employeeId,
                             location,
                             joiningDate,
-                            currentManager,
                           ),
 
                           const SizedBox(height: 24),
@@ -380,7 +366,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   Widget _buildEnhancedProfileHeader(
     String name,
     String designation,
-    String department,
+    String domain,
   ) {
     return Container(
       width: double.infinity,
@@ -451,9 +437,9 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              "Monday, June 2, 2025",
-              style: TextStyle(
+            child: Text(
+              _getCurrentDate(),
+              style: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFF475569),
                 fontWeight: FontWeight.w600,
@@ -491,7 +477,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
           const SizedBox(height: 12),
 
-          // Department
+          // Domain - Fixed to properly display domain instead of department
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -509,7 +495,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  department,
+                  domain, // Now properly displays domain from Firestore
                   style: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFF64748B),
@@ -590,7 +576,6 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
     String employeeId,
     String location,
     String joiningDate,
-    String? currentManager,
   ) {
     return Container(
       width: double.infinity,
@@ -655,15 +640,6 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
             joiningDate,
             const Color(0xFF9575CD),
           ),
-          if (currentManager != null) ...[
-            const SizedBox(height: 16),
-            _buildEnhancedInfoRow(
-              Icons.person_outline,
-              "Reporting Manager",
-              currentManager,
-              const Color(0xFF4DD0E1),
-            ),
-          ],
         ],
       ),
     );
@@ -721,5 +697,16 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
         ],
       ),
     );
+  }
+
+  String _getCurrentDate() {
+    final now = DateTime.now();
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    final weekday = weekdays[now.weekday - 1];
+    final month = months[now.month - 1];
+    
+    return '$weekday, $month ${now.day}, ${now.year}';
   }
 }

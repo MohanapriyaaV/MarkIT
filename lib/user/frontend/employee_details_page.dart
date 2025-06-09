@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/employee_details_model.dart';
+import '../services/employee_details_service.dart';
 
 class EmployeeFormPage extends StatefulWidget {
   final String uid;
@@ -14,14 +15,18 @@ class EmployeeFormPage extends StatefulWidget {
 class _EmployeeFormPageState extends State<EmployeeFormPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  final _otherRoleController = TextEditingController();
   final TextEditingController _joiningDateController = TextEditingController();
   late TextEditingController _emailController;
+  final EmployeeService _employeeService = EmployeeService();
 
   late AnimationController _animationController;
   late Animation<double> _animation;
   late Animation<Offset> _slideAnimation;
 
-  String? name, designation, department, phone, location, manager;
+  String? name, role, domain, phone, location;
+  String? selectedRole, selectedDomain, selectedOtherRole;
+  bool showOtherRoleDropdown = false;
 
   @override
   void initState() {
@@ -39,10 +44,9 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
     _animationController.forward();
   }
 
@@ -50,6 +54,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
   void dispose() {
     _joiningDateController.dispose();
     _emailController.dispose();
+    _otherRoleController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -83,29 +88,31 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      final data = {
-        'name': name ?? '',
-        'role': designation ?? '',
-        'department': department ?? '',
-        'email': widget.email,
-        'phoneNumber': phone ?? '',
-        'location': location ?? '',
-        'JoiningDate': _joiningDateController.text,
-        'Manager': manager ?? '',
-        'empId': widget.uid,
-        'emergency_leave': 0,
-      };
+      // Determine final role value
+      String finalRole = selectedRole ?? '';
+      if (selectedRole == 'Other' && selectedOtherRole != null) {
+        finalRole = selectedOtherRole!;
+      }
 
-      try {
-        await FirebaseFirestore.instance
-            .collection('employeeInfo')
-            .doc(widget.uid)
-            .set(data, SetOptions(merge: true));
+      // Create Employee object
+      final employee = Employee(
+        name: name?.trim(),
+        role: finalRole,
+        domain: selectedDomain,
+        email: widget.email,
+        phoneNumber: phone?.trim(),
+        location: location?.trim(),
+        joiningDate: _joiningDateController.text,
+        empId: widget.uid,
+        emergencyLeave: 0,
+      );
 
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/');
-        }
-      } catch (e) {
+      // Save using service
+      bool success = await _employeeService.saveEmployeeData(employee);
+
+      if (success && mounted) {
+        Navigator.pushReplacementNamed(context, '/');
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text("Error saving details."),
@@ -167,11 +174,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -220,6 +223,112 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
     );
   }
 
+  Widget _buildDropdownField({
+    required String label,
+    required IconData icon,
+    required List<String> items,
+    required String? value,
+    required void Function(String?) onChanged,
+    required String? Function(String?) validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _animation,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white.withOpacity(0.15),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: DropdownButtonFormField<String>(
+              value: value,
+              decoration: InputDecoration(
+                labelText: label,
+                labelStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                ),
+                prefixIcon: Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: Colors.white.withOpacity(0.5),
+                    width: 2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: Colors.redAccent,
+                    width: 2,
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: Colors.redAccent,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 20,
+                ),
+                filled: true,
+                fillColor: Colors.transparent,
+              ),
+              dropdownColor: const Color(0xFF6366F1),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.white,
+              ),
+              items:
+                  items.map((String item) {
+                    return DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(
+                        item,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }).toList(),
+              onChanged: onChanged,
+              validator: validator,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return SlideTransition(
       position: _slideAnimation,
@@ -231,10 +340,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
-            ),
+            border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
           ),
           child: Column(
             children: [
@@ -335,22 +441,54 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                         _buildTextField(
                           label: "Full Name",
                           icon: Icons.person_rounded,
-                          validator: (val) => val!.isEmpty ? "Enter name" : null,
+                          validator:
+                              (val) => val!.isEmpty ? "Enter name" : null,
                           onSaved: (val) => name = val?.trim(),
                         ),
-                        _buildTextField(
-                          label: "Designation",
+                        _buildDropdownField(
+                          label: "Role",
                           icon: Icons.badge_rounded,
-                          validator: (val) =>
-                              val!.isEmpty ? "Enter designation" : null,
-                          onSaved: (val) => designation = val?.trim(),
+                          items: EmployeeFormData.roleOptions,
+                          value: selectedRole,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedRole = newValue;
+                              showOtherRoleDropdown = newValue == 'Other';
+                              if (newValue != 'Other') {
+                                selectedOtherRole = null;
+                              }
+                            });
+                          },
+                          validator:
+                              (val) => val == null ? "Select a role" : null,
                         ),
-                        _buildTextField(
-                          label: "Department",
-                          icon: Icons.apartment_rounded,
-                          validator: (val) =>
-                              val!.isEmpty ? "Enter department" : null,
-                          onSaved: (val) => department = val?.trim(),
+                        if (showOtherRoleDropdown)
+                          _buildDropdownField(
+                            label: "Specific Role",
+                            icon: Icons.admin_panel_settings_rounded,
+                            items: EmployeeFormData.otherRoleOptions,
+                            value: selectedOtherRole,
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                selectedOtherRole = newValue;
+                              });
+                            },
+                            validator:
+                                (val) =>
+                                    val == null ? "Select specific role" : null,
+                          ),
+                        _buildDropdownField(
+                          label: "Domain",
+                          icon: Icons.domain_rounded,
+                          items: EmployeeFormData.domainOptions,
+                          value: selectedDomain,
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              selectedDomain = newValue;
+                            });
+                          },
+                          validator:
+                              (val) => val == null ? "Select a domain" : null,
                         ),
                         _buildTextField(
                           label: "Email",
@@ -373,9 +511,10 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                           onSaved: (val) => phone = val?.trim(),
                         ),
                         _buildTextField(
-                          label: "Location / Address",
+                          label: "Address",
                           icon: Icons.location_on_rounded,
-                          validator: (val) => val!.isEmpty ? "Enter location" : null,
+                          validator:
+                              (val) => val!.isEmpty ? "Enter location" : null,
                           onSaved: (val) => location = val?.trim(),
                         ),
                         _buildTextField(
@@ -383,16 +522,10 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                           icon: Icons.calendar_today_rounded,
                           controller: _joiningDateController,
                           readOnly: true,
-                          validator: (val) => val!.isEmpty ? "Pick a date" : null,
+                          validator:
+                              (val) => val!.isEmpty ? "Pick a date" : null,
                           onSaved: (_) {},
                           onTap: _selectJoiningDate,
-                        ),
-                        _buildTextField(
-                          label: "Manager Name",
-                          icon: Icons.supervisor_account_rounded,
-                          validator: (val) =>
-                              val!.isEmpty ? "Enter manager's name" : null,
-                          onSaved: (val) => manager = val?.trim(),
                         ),
                         const SizedBox(height: 20),
                         SlideTransition(

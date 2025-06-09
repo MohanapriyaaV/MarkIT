@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'services/leave_service.dart';
-import 'models/leave_application.dart';
+import '../services/leave_service.dart';
+import '../models/leave_application.dart';
 
 class ApplyLeavePage extends StatefulWidget {
   const ApplyLeavePage({Key? key}) : super(key: key);

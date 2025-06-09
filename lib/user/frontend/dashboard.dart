@@ -5,6 +5,9 @@ import 'emergency_page.dart'; // Emergency Leave page
 import 'pending_leave_request.dart'; // NEW: Pending Leave Request Page
 import 'attendance_page.dart'; // Add this import
 import 'attendance_overview.dart'; // ✅ Import the new attendance overview page
+import '../../admin/admin_dashboard.dart'; // ✅ Import the admin dashboard
+import '../models/dashboard_model.dart';
+import '../services/dashboard_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -21,6 +24,9 @@ class _DashboardPageState extends State<DashboardPage>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _scaleAnimation;
+
+  // User data
+  UserData? userData;
 
   @override
   void initState() {
@@ -55,6 +61,19 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Get user data from route arguments
+    if (userData == null) {
+      final routeData = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (routeData != null) {
+        userData = DashboardService.processUserData(routeData);
+        setState(() {});
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
@@ -62,91 +81,17 @@ class _DashboardPageState extends State<DashboardPage>
     super.dispose();
   }
 
+  // Helper method to convert Map<dynamic, dynamic> to Map<String, dynamic>
+  Map<String, dynamic>? _convertToStringMap(Map<dynamic, dynamic>? data) {
+    if (data == null) return null;
+    return data.map((key, value) => MapEntry(key.toString(), value));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<_DashboardButton> dashboardButtons = [
-      _DashboardButton(
-        "Profile Summary",
-        Icons.person_outline,
-        const LinearGradient(
-          colors: [Color(0xFF6A5ACD), Color(0xFF9370DB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Mark Present",
-        Icons.check_circle_outline,
-        const LinearGradient(
-          colors: [Color(0xFF32CD32), Color(0xFF00FA9A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Apply Leave",
-        Icons.event_note_outlined,
-        const LinearGradient(
-          colors: [Color(0xFF4169E1), Color(0xFF6495ED)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Apply Emergency Leave",
-        Icons.warning_amber_outlined,
-        const LinearGradient(
-          colors: [Color(0xFFFF6347), Color(0xFFFF7F50)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Pending Leave Requests",
-        Icons.pending_actions_outlined,
-        const LinearGradient(
-          colors: [Color(0xFFFF8C00), Color(0xFFFFA500)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Leave Overview",
-        Icons.view_list_outlined,
-        const LinearGradient(
-          colors: [Color(0xFF4B0082), Color(0xFF663399)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Attendance Overview",
-        Icons.analytics_outlined,
-        const LinearGradient(
-          colors: [Color(0xFF20B2AA), Color(0xFF48D1CC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Notifications",
-        Icons.notifications_outlined,
-        const LinearGradient(
-          colors: [Color(0xFFFF69B4), Color(0xFFFFB6C1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      _DashboardButton(
-        "Calendar",
-        Icons.calendar_today_outlined,
-        const LinearGradient(
-          colors: [Color(0xFF8A2BE2), Color(0xFFBA55D3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-    ];
+    final dashboardButtons = DashboardService.getDashboardButtons(
+      isAdmin: userData?.isAdmin ?? false,
+    );
 
     return Scaffold(
       body: Container(
@@ -188,6 +133,18 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildCustomAppBar() {
+    String welcomeText = "Welcome Back!";
+    String subtitle = "Have a productive day";
+    String roleDisplayText = "";
+    bool isAdmin = false;
+    
+    if (userData != null) {
+      welcomeText = userData!.welcomeText;
+      subtitle = userData!.subtitleText;
+      roleDisplayText = RoleService.getDisplayName(userData!.userRole);
+      isAdmin = userData!.isAdmin;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -214,28 +171,65 @@ class _DashboardPageState extends State<DashboardPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome Back!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      welcomeText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Have a productive day',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            subtitle,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                ],
+                    if (roleDisplayText.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Role: $roleDisplayText',
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -244,8 +238,8 @@ class _DashboardPageState extends State<DashboardPage>
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: Colors.white.withOpacity(0.3)),
                 ),
-                child: const Icon(
-                  Icons.dashboard_customize,
+                child: Icon(
+                  isAdmin ? Icons.admin_panel_settings : Icons.dashboard_customize,
                   color: Colors.white,
                   size: 28,
                 ),
@@ -257,7 +251,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  Widget _buildDashboardGrid(List<_DashboardButton> dashboardButtons) {
+  Widget _buildDashboardGrid(List<DashboardButton> dashboardButtons) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GridView.builder(
@@ -290,7 +284,7 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Widget _buildEnhancedDashboardButton(
-      BuildContext context, _DashboardButton item) {
+      BuildContext context, DashboardButton item) {
     return GestureDetector(
       onTap: () => _handleButtonTap(context, item),
       child: AnimatedContainer(
@@ -365,7 +359,7 @@ class _DashboardPageState extends State<DashboardPage>
     );
   }
 
-  void _handleButtonTap(BuildContext context, _DashboardButton item) {
+  void _handleButtonTap(BuildContext context, DashboardButton item) {
     // Add haptic feedback
     // HapticFeedback.lightImpact();
 
@@ -433,9 +427,8 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       );
     } else if (item.title == "Mark Present") {
-      // Get empId from route arguments
-      final String? empId =
-          ModalRoute.of(context)?.settings.arguments as String?;
+      // Get empId from user data
+      final String? empId = userData?.uid;
       if (empId != null) {
         Navigator.push(
           context,
@@ -457,32 +450,53 @@ class _DashboardPageState extends State<DashboardPage>
         );
       }
     } else if (item.title == "Attendance Overview") {
-  final String? empId =
-      ModalRoute.of(context)?.settings.arguments as String?;
-  if (empId != null) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            AttendanceOverviewScreen(empId: empId),
-        transitionsBuilder:
-            (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
+      final String? empId = userData?.uid;
+      if (empId != null) {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                AttendanceOverviewScreen(empId: empId),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.3),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    } else if (item.title == "Admin Functionality") {
+      // Navigate to AdminDashboard with proper type conversion
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              AdminDashboard(userData: _convertToStringMap(userData?.rawData)),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
               position: Tween<Offset>(
-                begin: const Offset(0.0, 0.3),
+                begin: const Offset(1.0, 0.0),
                 end: Offset.zero,
-              ).animate(animation),
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeInOutCubic,
+              )),
               child: child,
-            ),
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
-  }
-} else {
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Navigating to ${item.title}..."),
@@ -496,12 +510,4 @@ class _DashboardPageState extends State<DashboardPage>
       );
     }
   }
-}
-
-class _DashboardButton {
-  final String title;
-  final IconData icon;
-  final LinearGradient gradient;
-
-  _DashboardButton(this.title, this.icon, this.gradient);
 }
