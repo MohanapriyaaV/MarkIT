@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/attendance_model.dart';
 import '../services/attendance_service.dart';
+import '../services/face_data_service.dart';
+import '../frontend/face_auth_screen.dart';
 
 class AttendancePage extends StatefulWidget {
   final String empId;
@@ -16,6 +18,7 @@ class AttendancePage extends StatefulWidget {
 class _AttendancePageState extends State<AttendancePage>
     with TickerProviderStateMixin {
   final AttendanceService _attendanceService = AttendanceService();
+  final FaceDataService _faceDataService = FaceDataService();
 
   bool _attendanceMarked = false;
   bool _isSunday = false;
@@ -83,13 +86,12 @@ class _AttendancePageState extends State<AttendancePage>
     final eligibility = _attendanceService.checkEligibility();
     setState(() {
       _isSunday = eligibility.isSunday;
-      _isEligibleTime = eligibility.isEligibleTime;
+      _isEligibleTime = true; // Always enable for testing
       _currentSession = eligibility.session;
       _isEarly = eligibility.isEarly;
       _isLateFN = eligibility.isLateFN;
       _isTooLate = eligibility.isTooLate;
       _timeRemaining = eligibility.timeRemaining;
-      
       if (!eligibility.isEligibleTime && eligibility.lateMessage != null) {
         _statusMessage = eligibility.lateMessage!;
       }
@@ -98,26 +100,43 @@ class _AttendancePageState extends State<AttendancePage>
 
   Future<void> _markAttendance() async {
     if (_isLoading) return;
-    
     setState(() => _isLoading = true);
-    
     try {
       final eligibility = _attendanceService.checkEligibility();
-
       if (eligibility.isEarly) {
         await _askForRemark();
       }
-
+      // Check if face data exists for this user
+      final hasFace = await _faceDataService.hasFaceData(widget.empId);
+      final faceAuthResult = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FaceAuthScreen(
+            isRegistration: !hasFace, // true if first time, false otherwise
+            userId: widget.empId,
+          ),
+        ),
+      );
+      if (faceAuthResult != true) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Face authentication failed or cancelled.';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Face authentication failed or cancelled.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
       final statusMessage =
           await _attendanceService.markAttendance(widget.empId, _remark);
-
       setState(() {
         _attendanceMarked = true;
         _statusMessage = statusMessage;
         _isLoading = false;
       });
-
-      // Show success message and navigate after delay
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(statusMessage),
@@ -125,7 +144,6 @@ class _AttendancePageState extends State<AttendancePage>
           duration: const Duration(seconds: 2),
         ),
       );
-
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           Navigator.pushReplacementNamed(
