@@ -2,34 +2,34 @@
 class Employee {
   final String? name;
   final String? role;
-  final String? domain;
+  final String? department; // Changed from domain to department
   final String email;
   final String? phoneNumber;
   final String? location;
   final String? joiningDate;
-  final String empId;
+  final String userId; // Changed from empId to userId
 
   Employee({
     this.name,
     this.role,
-    this.domain,
+    this.department, // Changed from domain to department
     required this.email,
     this.phoneNumber,
     this.location,
     this.joiningDate,
-    required this.empId,
+    required this.userId, // Changed from empId to userId
   });
 
   factory Employee.fromFirestore(Map<String, dynamic> data) {
     return Employee(
       name: data['name'] as String?,
       role: data['role'] as String?,
-      domain: data['domain'] as String?, // Make sure domain is properly extracted
+      department: data['department'] as String?, // Now extracts department field
       email: data['email'] as String? ?? '',
       phoneNumber: data['phoneNumber'] as String?,
       location: data['location'] as String?,
       joiningDate: data['JoiningDate'] as String?, // Note: 'JoiningDate' with capital J
-      empId: data['empId'] as String? ?? 'VistaES01',
+      userId: data['userId'] as String? ?? 'VISTA0001', // Now extracts userId field
     );
   }
 
@@ -37,17 +37,17 @@ class Employee {
     return {
       'name': name,
       'role': role,
-      'domain': domain,
+      'department': department, // Changed from domain to department
       'email': email,
       'phoneNumber': phoneNumber,
       'location': location,
       'JoiningDate': joiningDate,
-      'empId': empId,
+      'userId': userId, // Changed from empId to userId
     };
   }
 
   @override
   String toString() {
-    return 'Employee(name: $name, role: $role, domain: $domain, email: $email, phoneNumber: $phoneNumber, location: $location, joiningDate: $joiningDate, empId: $empId)';
+    return 'Employee(name: $name, role: $role, department: $department, email: $email, phoneNumber: $phoneNumber, location: $location, joiningDate: $joiningDate, userId: $userId)';
   }
 }

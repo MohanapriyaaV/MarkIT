@@ -78,4 +78,37 @@ class EmployeeService {
       return false;
     }
   }
+
+  // Check if employee ID (userId) already exists
+  Future<bool> employeeIdExists(String userId) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_collectionName)
+          .where('userId', isEqualTo: userId)
+          .get();
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking employee ID existence: $e');
+      return false;
+    }
+  }
+
+  // Get employee by userId
+  Future<Employee?> getEmployeeByUserId(String userId) async {
+    try {
+      QuerySnapshot querySnapshot = await _firestore
+          .collection(_collectionName)
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        return Employee.fromMap(querySnapshot.docs.first.data() as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting employee by userId: $e');
+      return null;
+    }
+  }
 }

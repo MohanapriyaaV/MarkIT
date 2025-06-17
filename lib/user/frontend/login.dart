@@ -98,7 +98,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // FIXED: Enhanced login method with better error handling and fallback strategy
+  // FIXED: Enhanced login method with proper role handling and no default assignment
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -125,22 +125,46 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       Map<String, dynamic>? userData = await _getUserDataWithFallback(uid, email);
 
       if (userData != null) {
-        // Extract and clean the role from userData
-        final rawRole = userData['role']?.toString() ?? 'Process Associates';
-        String cleanRole = RoleService.fixRoleData(rawRole);
+        // Extract and validate the role from userData
+        final rawRole = userData['role']?.toString();
         
         print('=== USER DATA FOUND ===');
-        print('Raw role: "$rawRole"');
-        print('Clean role: "$cleanRole"');
+        print('Raw role from database: "$rawRole"');
         print('Full user data: $userData');
         
-        // Create UserModel with actual data
+        // Only process role if it exists and is not empty
+        String? cleanRole;
+        if (rawRole != null && rawRole.trim().isNotEmpty) {
+          // Check if the role exists in our valid roles list
+          final allValidRoles = RoleService.getAllRoles();
+          final matchingRole = allValidRoles.firstWhere(
+            (validRole) => validRole.toLowerCase() == rawRole.trim().toLowerCase(),
+            orElse: () => '',
+          );
+          
+          if (matchingRole.isNotEmpty) {
+            cleanRole = matchingRole;
+            print('Matched valid role: "$cleanRole"');
+          } else {
+            print('Role "$rawRole" is not in valid roles list');
+            print('Valid roles: $allValidRoles');
+            _showErrorSnackBar('Invalid role assigned to your account. Please contact administrator.');
+            return;
+          }
+        } else {
+          print('No role found in user data');
+          _showErrorSnackBar('No role assigned to your account. Please contact administrator.');
+          return;
+        }
+        
+        // Create UserModel with validated role
         final userModel = UserModel(
           uid: uid,
           email: email,
           name: userData['name']?.toString() ?? email.split('@')[0],
           role: cleanRole,
           isAdmin: RoleService.isAdminRole(cleanRole),
+          isDirector: RoleService.isDirector(cleanRole),
           department: userData['department']?.toString(),
           domain: userData['domain']?.toString(),
           manager: userData['Manager']?.toString() ?? userData['manager']?.toString(),
@@ -148,27 +172,24 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           phoneNumber: userData['phoneNumber']?.toString(),
           joiningDate: userData['JoiningDate']?.toString() ?? userData['joiningDate']?.toString(),
           emergencyLeave: userData['emergency_leave'] as int? ?? userData['emergencyLeave'] as int? ?? 0,
+          createdAt: userData['createdAt'] != null ? DateTime.tryParse(userData['createdAt'].toString()) : null,
+          lastLogin: DateTime.now(),
         );
 
         print('=== USER MODEL CREATED ===');
         print('User model: $userModel');
         print('User role: "${userModel.role}"');
         print('Is admin: ${userModel.isAdmin}');
+        print('Is director: ${userModel.isDirector}');
+        print('Role level: ${userModel.roleLevel}');
         print('=========================');
         
         _navigateToDashboard(userModel);
       } else {
-        // FALLBACK: Create default user if no data found
-        print('=== NO USER DATA FOUND - CREATING DEFAULT ===');
-        await _createDefaultUserData(uid, email);
-        final defaultUser = UserModel(
-          uid: uid,
-          email: email,
-          name: email.split('@')[0],
-          role: 'Process Associates',
-          isAdmin: false,
-        );
-        _navigateToDashboard(defaultUser);
+        // NO FALLBACK: Don't create default user, require proper role assignment
+        print('=== NO USER DATA FOUND ===');
+        _showErrorSnackBar('Account not found in employee database. Please contact administrator.');
+        return;
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
@@ -194,44 +215,61 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
-  // NEW: Comprehensive method to get user data with multiple fallback strategies
+  // IMPROVED: Comprehensive method to get user data with multiple fallback strategies
   Future<Map<String, dynamic>?> _getUserDataWithFallback(String uid, String email) async {
     Map<String, dynamic>? userData;
 
     // Strategy 1: Try to get data from employeeInfo by email
     print('=== STRATEGY 1: Fetch by email from employeeInfo ===');
     userData = await _getEmployeeDataByEmail(email);
-    if (userData != null) {
-      print('SUCCESS: Found data by email in employeeInfo');
+    if (userData != null && _hasValidRole(userData)) {
+      print('SUCCESS: Found valid data by email in employeeInfo');
       return userData;
     }
 
     // Strategy 2: Try to get data from employeeInfo by UID (if empId field matches UID)
     print('=== STRATEGY 2: Fetch by UID from employeeInfo ===');
     userData = await _getEmployeeDataByEmpId(uid);
-    if (userData != null) {
-      print('SUCCESS: Found data by UID in employeeInfo');
+    if (userData != null && _hasValidRole(userData)) {
+      print('SUCCESS: Found valid data by UID in employeeInfo');
       return userData;
     }
 
     // Strategy 3: Try to get data from users collection
     print('=== STRATEGY 3: Fetch from users collection ===');
     userData = await _getUserDataFromUsersCollection(uid);
-    if (userData != null) {
-      print('SUCCESS: Found data in users collection');
+    if (userData != null && _hasValidRole(userData)) {
+      print('SUCCESS: Found valid data in users collection');
       return userData;
     }
 
     // Strategy 4: Try to search employeeInfo without specific query (get all and filter)
     print('=== STRATEGY 4: Search all employeeInfo documents ===');
     userData = await _findEmployeeDataBySearch(email, uid);
-    if (userData != null) {
-      print('SUCCESS: Found data by searching all employeeInfo documents');
+    if (userData != null && _hasValidRole(userData)) {
+      print('SUCCESS: Found valid data by searching all employeeInfo documents');
       return userData;
     }
 
-    print('=== ALL STRATEGIES FAILED ===');
+    print('=== ALL STRATEGIES FAILED OR NO VALID ROLE FOUND ===');
     return null;
+  }
+
+  // NEW: Check if user data has a valid role
+  bool _hasValidRole(Map<String, dynamic> userData) {
+    final role = userData['role']?.toString();
+    if (role == null || role.trim().isEmpty) {
+      print('No role found in user data');
+      return false;
+    }
+    
+    final validRoles = RoleService.getAllRoles();
+    final hasValidRole = validRoles.any(
+      (validRole) => validRole.toLowerCase() == role.trim().toLowerCase()
+    );
+    
+    print('Role "$role" is valid: $hasValidRole');
+    return hasValidRole;
   }
 
   // IMPROVED: Fetch employee data from employeeInfo collection by email with better error handling
@@ -254,7 +292,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       return null;
     } catch (e) {
       print('Error fetching employee data by email: $e');
-      // Don't return null immediately, let other strategies try
       return null;
     }
   }
@@ -278,7 +315,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
-  // NEW: Fetch data from users collection
+  // IMPROVED: Fetch data from users collection
   Future<Map<String, dynamic>?> _getUserDataFromUsersCollection(String uid) async {
     try {
       print('Fetching user data from users collection: "$uid"');
@@ -297,7 +334,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
-  // NEW: Search strategy - get all employeeInfo documents and find matching one
+  // IMPROVED: Search strategy - get all employeeInfo documents and find matching one
   Future<Map<String, dynamic>?> _findEmployeeDataBySearch(String email, String uid) async {
     try {
       print('Searching all employeeInfo documents for email: "$email" or empId: "$uid"');
@@ -332,60 +369,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
-  // IMPROVED: Create default user data with better error handling
-  Future<void> _createDefaultUserData(String uid, String email) async {
-    try {
-      print('Creating default user data for: $uid');
-      
-      // Try to create in users collection
-      try {
-        await _firestore.collection('users').doc(uid).set({
-          'email': email,
-          'name': email.split('@')[0],
-          'role': 'Process Associates',
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastLogin': FieldValue.serverTimestamp(),
-        });
-        print('Created default data in users collection');
-      } catch (e) {
-        print('Could not create in users collection: $e');
-      }
-
-      // Try to create in employeeInfo collection
-      try {
-        final employeeQuery = await _firestore
-            .collection('employeeInfo')
-            .where('email', isEqualTo: email)
-            .limit(1)
-            .get();
-
-        if (employeeQuery.docs.isEmpty) {
-          await _firestore.collection('employeeInfo').add({
-            'email': email,
-            'name': email.split('@')[0],
-            'role': 'Process Associates',
-            'empId': uid,
-            'department': '',
-            'domain': '',
-            'Manager': '',
-            'location': '',
-            'phoneNumber': '',
-            'JoiningDate': '',
-            'emergency_leave': 0,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-          print('Created default data in employeeInfo collection');
-        }
-      } catch (e) {
-        print('Could not create in employeeInfo collection: $e');
-      }
-
-    } catch (e) {
-      print('Error creating default user data: $e');
-      // Don't throw error, continue with login
-    }
-  }
-
   // Navigate to dashboard with user data
   void _navigateToDashboard(UserModel user) {
     // Try to update last login time (don't fail if this doesn't work)
@@ -399,27 +382,33 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     print('User model: $user');
     print('Data being passed to dashboard: $userMap');
     print('User is admin: ${user.isAdmin}');
+    print('User is director: ${user.isDirector}');
     print('User role: "${user.role}"');
-    print('RoleService says admin: ${RoleService.isAdminRole(user.role)}');
-    print('Display name: ${RoleService.getDisplayName(user.role)}');
+    print('Role level: ${user.roleLevel}');
+    print('Permissions: ${user.permissions}');
     print('========================');
 
-    // Navigate to appropriate dashboard based on admin status
+    // Navigate to appropriate dashboard based on user status
     Navigator.pushReplacementNamed(
-  context,
-  '/dashboard',
-  arguments: {
-    ...userMap,
-    'isAdmin': user.isAdmin,
-    'showAdminFeatures': user.isAdmin,
-  },
-);
+      context,
+      '/dashboard',
+      arguments: {
+        ...userMap,
+        'isAdmin': user.isAdmin,
+        'isDirector': user.isDirector,
+        'showAdminFeatures': user.isAdmin,
+        'showAdminButtons': user.isDirector, // Only Director shows admin buttons
+        'permissions': user.permissions,
+      },
+    );
 
     // Show welcome message with role information
-    String welcomeMessage =
-        'Welcome back, ${user.name}! (${RoleService.getDisplayName(user.role)})';
-    if (user.isAdmin) {
-      welcomeMessage += ' - Admin Access Granted';
+    String welcomeMessage = 'Welcome back, ${user.name}! (${user.roleDisplayName})';
+    
+    if (user.isDirector) {
+      welcomeMessage += ' - Director Access';
+    } else if (user.isAdmin) {
+      welcomeMessage += ' - Admin Access';
     }
 
     _showSuccessSnackBar(welcomeMessage);
@@ -428,9 +417,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   // IMPROVED: Update last login timestamp with error handling
   Future<void> _updateLastLogin(String uid) async {
     try {
+      // Update in users collection
       await _firestore.collection('users').doc(uid).update({
         'lastLogin': FieldValue.serverTimestamp(),
       });
+      
+      // Also try to update in employeeInfo if document exists
+      final employeeDoc = await _firestore.collection('employeeInfo').doc(uid).get();
+      if (employeeDoc.exists) {
+        await _firestore.collection('employeeInfo').doc(uid).update({
+          'lastLogin': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
       print('Error updating last login: $e');
       // Don't throw error, just log it
@@ -790,6 +788,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       ),
     );
   }
+
   Widget _buildStyledTextField({
     required TextEditingController controller,
     required String labelText,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'user_management.dart'; // Add this import
+import 'team_list_page.dart'; // Add this import
 
 class AdminDashboard extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -413,7 +413,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (functionTitle == 'User Management') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const UserManagementPage()),
+        MaterialPageRoute(builder: (context) =>  TeamListPage ()),
       );
     } else {
       // Show snackbar for other functions

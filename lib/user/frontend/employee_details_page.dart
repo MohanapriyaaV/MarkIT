@@ -15,8 +15,8 @@ class EmployeeFormPage extends StatefulWidget {
 class _EmployeeFormPageState extends State<EmployeeFormPage>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _otherRoleController = TextEditingController();
   final TextEditingController _joiningDateController = TextEditingController();
+  final TextEditingController _employeeIdController = TextEditingController();
   late TextEditingController _emailController;
   final EmployeeService _employeeService = EmployeeService();
 
@@ -24,9 +24,9 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
   late Animation<double> _animation;
   late Animation<Offset> _slideAnimation;
 
-  String? name, role, domain, phone, location;
-  String? selectedRole, selectedDomain, selectedOtherRole;
-  bool showOtherRoleDropdown = false;
+  String? name, role, phone, location, employeeId;
+  String? selectedRole, selectedDepartment;
+  bool isCheckingEmployeeId = false;
 
   @override
   void initState() {
@@ -54,7 +54,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
   void dispose() {
     _joiningDateController.dispose();
     _emailController.dispose();
-    _otherRoleController.dispose();
+    _employeeIdController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -84,26 +84,60 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
     }
   }
 
+  Future<bool> _validateEmployeeId(String employeeId) async {
+    // Check format: VISTA followed by 4 digits
+    final RegExp vistaRegex = RegExp(r'^VISTA\d{4}$');
+    if (!vistaRegex.hasMatch(employeeId)) {
+      return false;
+    }
+
+    // Check if employee ID already exists in database
+    bool exists = await _employeeService.employeeIdExists(employeeId);
+    return !exists;
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      // Determine final role value
-      String finalRole = selectedRole ?? '';
-      if (selectedRole == 'Other' && selectedOtherRole != null) {
-        finalRole = selectedOtherRole!;
+      // Validate employee ID
+      if (employeeId != null) {
+        setState(() {
+          isCheckingEmployeeId = true;
+        });
+
+        bool isValidEmployeeId = await _validateEmployeeId(employeeId!);
+        
+        setState(() {
+          isCheckingEmployeeId = false;
+        });
+
+        if (!isValidEmployeeId) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("Employee ID format should be VISTA followed by 4 digits and must be unique."),
+              backgroundColor: Colors.red.shade400,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+          return;
+        }
       }
 
       // Create Employee object
       final employee = Employee(
         name: name?.trim(),
-        role: finalRole,
-        domain: selectedDomain,
+        role: selectedRole,
+        department: selectedDepartment,
         email: widget.email,
         phoneNumber: phone?.trim(),
         location: location?.trim(),
         joiningDate: _joiningDateController.text,
         empId: widget.uid,
+        userId: employeeId,
         emergencyLeave: 0,
       );
 
@@ -310,16 +344,15 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                 Icons.keyboard_arrow_down_rounded,
                 color: Colors.white,
               ),
-              items:
-                  items.map((String item) {
-                    return DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(
-                        item,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    );
-                  }).toList(),
+              items: items.map((String item) {
+                return DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
+                    item,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
               onChanged: onChanged,
               validator: validator,
             ),
@@ -383,6 +416,21 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
     );
   }
 
+  List<String> _getRolesByDepartment(String? department) {
+    switch (department) {
+      case 'Production':
+        return EmployeeFormData.productionRoles;
+      case 'Other Designation':
+        return EmployeeFormData.otherDesignationRoles;
+      case 'Admin':
+        return EmployeeFormData.adminRoles;
+      case 'Recruiters':
+        return EmployeeFormData.recruiterRoles;
+      default:
+        return [];
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -441,55 +489,51 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                         _buildTextField(
                           label: "Full Name",
                           icon: Icons.person_rounded,
-                          validator:
-                              (val) => val!.isEmpty ? "Enter name" : null,
+                          validator: (val) => val!.isEmpty ? "Enter name" : null,
                           onSaved: (val) => name = val?.trim(),
                         ),
-                        _buildDropdownField(
-                          label: "Role",
+                        _buildTextField(
+                          label: "Employee ID",
                           icon: Icons.badge_rounded,
-                          items: EmployeeFormData.roleOptions,
-                          value: selectedRole,
+                          controller: _employeeIdController,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return "Enter employee ID";
+                            }
+                            final RegExp vistaRegex = RegExp(r'^VISTA\d{4}$');
+                            if (!vistaRegex.hasMatch(val)) {
+                              return "Format: VISTA followed by 4 digits";
+                            }
+                            return null;
+                          },
+                          onSaved: (val) => employeeId = val?.trim(),
+                        ),
+                        _buildDropdownField(
+                          label: "Department",
+                          icon: Icons.business_rounded,
+                          items: EmployeeFormData.departmentOptions,
+                          value: selectedDepartment,
                           onChanged: (String? newValue) {
                             setState(() {
-                              selectedRole = newValue;
-                              showOtherRoleDropdown = newValue == 'Other';
-                              if (newValue != 'Other') {
-                                selectedOtherRole = null;
-                              }
+                              selectedDepartment = newValue;
+                              selectedRole = null; // Reset role when department changes
                             });
                           },
-                          validator:
-                              (val) => val == null ? "Select a role" : null,
+                          validator: (val) => val == null ? "Select a department" : null,
                         ),
-                        if (showOtherRoleDropdown)
+                        if (selectedDepartment != null)
                           _buildDropdownField(
-                            label: "Specific Role",
-                            icon: Icons.admin_panel_settings_rounded,
-                            items: EmployeeFormData.otherRoleOptions,
-                            value: selectedOtherRole,
+                            label: "Role",
+                            icon: Icons.work_rounded,
+                            items: _getRolesByDepartment(selectedDepartment),
+                            value: selectedRole,
                             onChanged: (String? newValue) {
                               setState(() {
-                                selectedOtherRole = newValue;
+                                selectedRole = newValue;
                               });
                             },
-                            validator:
-                                (val) =>
-                                    val == null ? "Select specific role" : null,
+                            validator: (val) => val == null ? "Select a role" : null,
                           ),
-                        _buildDropdownField(
-                          label: "Domain",
-                          icon: Icons.domain_rounded,
-                          items: EmployeeFormData.domainOptions,
-                          value: selectedDomain,
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedDomain = newValue;
-                            });
-                          },
-                          validator:
-                              (val) => val == null ? "Select a domain" : null,
-                        ),
                         _buildTextField(
                           label: "Email",
                           icon: Icons.email_rounded,
@@ -513,8 +557,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                         _buildTextField(
                           label: "Address",
                           icon: Icons.location_on_rounded,
-                          validator:
-                              (val) => val!.isEmpty ? "Enter location" : null,
+                          validator: (val) => val!.isEmpty ? "Enter location" : null,
                           onSaved: (val) => location = val?.trim(),
                         ),
                         _buildTextField(
@@ -522,8 +565,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                           icon: Icons.calendar_today_rounded,
                           controller: _joiningDateController,
                           readOnly: true,
-                          validator:
-                              (val) => val!.isEmpty ? "Pick a date" : null,
+                          validator: (val) => val!.isEmpty ? "Pick a date" : null,
                           onSaved: (_) {},
                           onTap: _selectJoiningDate,
                         ),
@@ -546,7 +588,7 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                                 ],
                               ),
                               child: ElevatedButton(
-                                onPressed: _submitForm,
+                                onPressed: isCheckingEmployeeId ? null : _submitForm,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   foregroundColor: const Color(0xFF6366F1),
@@ -558,24 +600,47 @@ class _EmployeeFormPageState extends State<EmployeeFormPage>
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_outline_rounded,
-                                      size: 22,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      "Submit Details",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.5,
+                                child: isCheckingEmployeeId
+                                    ? const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFF6366F1),
+                                            ),
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            "Validating...",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.check_circle_outline_rounded,
+                                            size: 22,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            "Submit Details",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
-                                ),
                               ),
                             ),
                           ),

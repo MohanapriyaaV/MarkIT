@@ -5,7 +5,7 @@ import 'emergency_page.dart'; // Emergency Leave page
 import 'pending_leave_request.dart'; // NEW: Pending Leave Request Page
 import 'attendance_page.dart'; // Add this import
 import 'attendance_overview.dart'; // ✅ Import the new attendance overview page
-import '../../admin/admin_dashboard.dart'; // ✅ Import the admin dashboard
+import '../../admin/frontend/admin_dashboard.dart'; // ✅ Import the admin dashboard
 import '../models/dashboard_model.dart';
 import '../services/dashboard_service.dart';
 

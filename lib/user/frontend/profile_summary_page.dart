@@ -219,9 +219,9 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
     final String employeeName = employee!.name ?? 'N/A';
     final String designation = employee!.role ?? 'N/A';
-    final String domain = employee!.domain ?? 'N/A';
+    final String department = employee!.department ?? 'N/A'; // Changed from domain to department
     final String joiningDate = employee!.joiningDate ?? 'N/A';
-    final String employeeId = employee!.empId;
+    final String userId = employee!.userId; // Changed from employeeId to userId
     final String email = employee!.email;
     final String phoneNumber = employee!.phoneNumber ?? 'N/A';
     final String location = employee!.location ?? 'N/A';
@@ -262,7 +262,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                             child: _buildEnhancedProfileHeader(
                               employeeName,
                               designation,
-                              domain,
+                              department, // Now passing department instead of domain
                             ),
                           ),
 
@@ -275,7 +275,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
                           // Work Information
                           _buildEnhancedWorkSection(
-                            employeeId,
+                            userId, // Now passing userId instead of employeeId
                             location,
                             joiningDate,
                           ),
@@ -366,7 +366,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   Widget _buildEnhancedProfileHeader(
     String name,
     String designation,
-    String domain,
+    String department, // Changed parameter name from domain to department
   ) {
     return Container(
       width: double.infinity,
@@ -477,7 +477,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
 
           const SizedBox(height: 12),
 
-          // Domain - Fixed to properly display domain instead of department
+          // Department - Now properly displaying department instead of domain
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -495,7 +495,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  domain, // Now properly displays domain from Firestore
+                  department, // Now properly displays department from Firestore
                   style: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFF64748B),
@@ -573,7 +573,7 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
   }
 
   Widget _buildEnhancedWorkSection(
-    String employeeId,
+    String userId, // Changed parameter name from employeeId to userId
     String location,
     String joiningDate,
   ) {
@@ -622,8 +622,8 @@ class _ProfileSummaryPageState extends State<ProfileSummaryPage>
           const SizedBox(height: 20),
           _buildEnhancedInfoRow(
             Icons.badge_outlined,
-            "Employee ID",
-            employeeId,
+            "User ID", // Changed label from "Employee ID" to "User ID"
+            userId, // Now displaying userId instead of employeeId
             const Color(0xFF4DD0E1),
           ),
           const SizedBox(height: 16),
