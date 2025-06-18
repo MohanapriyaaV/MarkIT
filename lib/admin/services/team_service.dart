@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/team_model.dart';
 
 class TeamService {
@@ -13,8 +12,61 @@ class TeamService {
   }
 
   Future<void> updateTeam(TeamModel team) async {
+    if (team.teamId.isEmpty) {
+      throw Exception("Team ID cannot be empty for update.");
+    }
     await _firestore.collection('teams').doc(team.teamId).update(team.toMap());
     await _updateMembers(team);
+  }
+
+  Future<void> deleteTeam(String teamId) async {
+    if (teamId.isEmpty) {
+      throw Exception("Team ID cannot be empty for delete.");
+    }
+    await _firestore.collection('teams').doc(teamId).delete();
+  }
+
+  Future<List<TeamModel>> getTeamsByAdmin(String adminId) async {
+    final snapshot = await _firestore
+        .collection('teams')
+        .where('adminId', isEqualTo: adminId)
+        .get();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      return TeamModel.fromMap({
+        ...data,
+        'teamId': doc.id,
+      });
+    }).toList();
+  }
+
+  Future<List<TeamModel>> getAllTeams() async {
+    try {
+      final snapshot = await _firestore.collection('teams').get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return TeamModel.fromMap({
+          ...data,
+          'teamId': doc.id,
+        });
+      }).toList();
+    } catch (e) {
+      print("🔥 Error fetching all teams: $e");
+      return [];
+    }
+  }
+
+  Future<TeamModel?> getTeamById(String teamId) async {
+    if (teamId.isEmpty) return null;
+    final doc = await _firestore.collection('teams').doc(teamId).get();
+    if (doc.exists && doc.data() != null) {
+      return TeamModel.fromMap({
+        ...doc.data()!,
+        'teamId': doc.id,
+      });
+    }
+    return null;
   }
 
   Future<void> _updateMembers(TeamModel team) async {
@@ -36,39 +88,13 @@ class TeamService {
     }
   }
 
-  Future<List<TeamModel>> getTeamsByAdmin(String adminId) async {
-    final snapshot = await _firestore
-        .collection('teams')
-        .where('adminId', isEqualTo: adminId)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => TeamModel.fromMap(doc.data()))
-        .toList();
-  }
-
-  /// ✅ UPDATED: Fetch all teams (no filtering by current user)
-  Future<List<TeamModel>> getAllTeams() async {
-    try {
-      final snapshot = await _firestore.collection('teams').get();
-      return snapshot.docs
-          .map((doc) => TeamModel.fromMap(doc.data()))
-          .toList();
-    } catch (e) {
-      print("🔥 Error fetching all teams: $e");
-      return [];
-    }
-  }
-
-  Future<void> deleteTeam(String teamId) async {
-    await _firestore.collection('teams').doc(teamId).delete();
-  }
-
-  Future<TeamModel?> getTeamById(String teamId) async {
-    final doc = await _firestore.collection('teams').doc(teamId).get();
-    if (doc.exists && doc.data() != null) {
-      return TeamModel.fromMap(doc.data()!);
-    }
-    return null;
+  bool hasTeamEditPermission(TeamModel team, String userId) {
+    return team.adminId == userId ||
+        team.projectManagerId == userId ||
+        team.assistantProjectManagerId == userId ||
+        team.projectLeadId == userId ||
+        team.generalProjectManagerId == userId ||
+        team.assistantManagerHRId == userId ||
+        team.managerHRId == userId;
   }
 }

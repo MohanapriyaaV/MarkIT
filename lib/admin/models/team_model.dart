@@ -1,19 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 class TeamModel {
   final String teamId;
   final String teamName;
   final String adminId;
-  final String projectManagerId;
-  final String assistantProjectManagerId;
-  final String projectLeadId;
-  final String? assistantManagerHRId; // NEW
-  final String? managerHRId; // NEW
+  final String teamType;
+
+  // Admin role holders
+  final String? projectManagerId;
+  final String? assistantProjectManagerId;
+  final String? projectLeadId;
+  final String? generalProjectManagerId;
+  final String? assistantManagerHRId;
+  final String? managerHRId;
+
   final List<String> members;
+
+  // Shift Timing
   final DateTime session1Login;
   final DateTime session1Logout;
   final DateTime session2Login;
   final DateTime session2Logout;
   final int graceTimeInMinutes;
+
+  // Leave Limits
   final int noLOPDays;
   final int emergencyLeaves;
 
@@ -21,9 +31,11 @@ class TeamModel {
     required this.teamId,
     required this.teamName,
     required this.adminId,
-    required this.projectManagerId,
-    required this.assistantProjectManagerId,
-    required this.projectLeadId,
+    required this.teamType,
+    this.projectManagerId,
+    this.assistantProjectManagerId,
+    this.projectLeadId,
+    this.generalProjectManagerId,
     this.assistantManagerHRId,
     this.managerHRId,
     required this.members,
@@ -36,14 +48,17 @@ class TeamModel {
     required this.emergencyLeaves,
   });
 
+  /// Convert to Firestore map (flat)
   Map<String, dynamic> toMap() {
     return {
       'teamId': teamId,
       'teamName': teamName,
       'adminId': adminId,
+      'teamType': teamType,
       'projectManagerId': projectManagerId,
       'assistantProjectManagerId': assistantProjectManagerId,
       'projectLeadId': projectLeadId,
+      'generalProjectManagerId': generalProjectManagerId,
       'assistantManagerHRId': assistantManagerHRId,
       'managerHRId': managerHRId,
       'members': members,
@@ -57,14 +72,17 @@ class TeamModel {
     };
   }
 
+  /// Construct from Firestore map (flat)
   factory TeamModel.fromMap(Map<String, dynamic> map) {
     return TeamModel(
       teamId: map['teamId'] ?? '',
       teamName: map['teamName'] ?? '',
       adminId: map['adminId'] ?? '',
-      projectManagerId: map['projectManagerId'] ?? '',
-      assistantProjectManagerId: map['assistantProjectManagerId'] ?? '',
-      projectLeadId: map['projectLeadId'] ?? '',
+      teamType: map['teamType'] ?? 'Production Team',
+      projectManagerId: map['projectManagerId'],
+      assistantProjectManagerId: map['assistantProjectManagerId'],
+      projectLeadId: map['projectLeadId'],
+      generalProjectManagerId: map['generalProjectManagerId'],
       assistantManagerHRId: map['assistantManagerHRId'],
       managerHRId: map['managerHRId'],
       members: List<String>.from(map['members'] ?? []),
@@ -82,9 +100,11 @@ class TeamModel {
     String? teamId,
     String? teamName,
     String? adminId,
+    String? teamType,
     String? projectManagerId,
     String? assistantProjectManagerId,
     String? projectLeadId,
+    String? generalProjectManagerId,
     String? assistantManagerHRId,
     String? managerHRId,
     List<String>? members,
@@ -100,9 +120,11 @@ class TeamModel {
       teamId: teamId ?? this.teamId,
       teamName: teamName ?? this.teamName,
       adminId: adminId ?? this.adminId,
+      teamType: teamType ?? this.teamType,
       projectManagerId: projectManagerId ?? this.projectManagerId,
       assistantProjectManagerId: assistantProjectManagerId ?? this.assistantProjectManagerId,
       projectLeadId: projectLeadId ?? this.projectLeadId,
+      generalProjectManagerId: generalProjectManagerId ?? this.generalProjectManagerId,
       assistantManagerHRId: assistantManagerHRId ?? this.assistantManagerHRId,
       managerHRId: managerHRId ?? this.managerHRId,
       members: members ?? this.members,

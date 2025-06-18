@@ -5,12 +5,16 @@ class SelectMembersPage extends StatefulWidget {
   final List<String> selectedMembers;
   final String currentUserId;
   final String role;
+  final bool isGeneralTeam;
+  final bool isSuperAdmin;
 
   const SelectMembersPage({
     Key? key,
     this.selectedMembers = const [],
     required this.currentUserId,
     required this.role,
+    this.isGeneralTeam = false,
+    this.isSuperAdmin = false,
   }) : super(key: key);
 
   @override
@@ -23,14 +27,27 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
   String? _projectLeadId;
   String? _assistantManagerHRId;
   String? _managerHRId;
+  String? _generalProjectManagerId;
 
   final Set<String> _otherMembers = {};
   List<DocumentSnapshot> allUsers = [];
+
+  final List<String> adminRoles = [
+    'Project Manager',
+    'Assistant Project Manager',
+    'Project Lead',
+    'Assistant Manager HR',
+    'Manager HR',
+    'General Project Manager',
+  ];
+
+  Set<String> alreadyAssignedUserIds = {};
 
   @override
   void initState() {
     super.initState();
     _autoAssignCurrentUser();
+    _loadAlreadyAssignedUsers();
   }
 
   void _autoAssignCurrentUser() {
@@ -44,13 +61,48 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
       case 'Project Lead':
         _projectLeadId = widget.currentUserId;
         break;
+      case 'Assistant Manager HR':
+        _assistantManagerHRId = widget.currentUserId;
+        break;
+      case 'Manager HR':
+        _managerHRId = widget.currentUserId;
+        break;
+      case 'General Project Manager':
+        _generalProjectManagerId = widget.currentUserId;
+        break;
     }
   }
 
+  Future<void> _loadAlreadyAssignedUsers() async {
+    final teamsSnapshot = await FirebaseFirestore.instance.collection('teams').get();
+
+    final Set<String> assignedUsers = {};
+    for (var doc in teamsSnapshot.docs) {
+      final data = doc.data();
+      assignedUsers.addAll([
+        data['projectManagerId'],
+        data['assistantProjectManagerId'],
+        data['projectLeadId'],
+        data['assistantManagerHRId'],
+        data['managerHRId'],
+        data['generalProjectManagerId'],
+        ...List<String>.from(data['members'] ?? []),
+      ].whereType<String>());
+    }
+
+    assignedUsers.remove(widget.currentUserId);
+
+    setState(() {
+      alreadyAssignedUserIds = assignedUsers;
+    });
+  }
+
   List<DocumentSnapshot> _filterByRole(String role) {
-    return allUsers
-        .where((doc) => doc['role'] == role && doc.id != widget.currentUserId)
-        .toList();
+    return allUsers.where((doc) =>
+      doc['role'] == role &&
+      doc.id != widget.currentUserId &&
+      !alreadyAssignedUserIds.contains(doc.id)
+    ).toList();
   }
 
   Widget _buildDropdown({
@@ -67,10 +119,9 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
           labelText: label,
           border: OutlineInputBorder(),
         ),
-        child: disabled
+        child: disabled && selectedId != null
             ? Text(
-                allUsers
-                    .firstWhere((doc) => doc.id == selectedId)['name']
+                allUsers.firstWhere((doc) => doc.id == selectedId)['name']
                     .toString(),
               )
             : DropdownButtonHideUnderline(
@@ -96,11 +147,12 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Select Team Members')),
       body: StreamBuilder<QuerySnapshot>(
-        stream:
-            FirebaseFirestore.instance.collection('employeeInfo').snapshots(),
+        stream: FirebaseFirestore.instance.collection('employeeInfo').snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData || (alreadyAssignedUserIds.isEmpty && allUsers.isEmpty)) {
             return const Center(child: CircularProgressIndicator());
+          }
+
           allUsers = snapshot.data!.docs;
 
           final pmOptions = _filterByRole('Project Manager');
@@ -108,25 +160,24 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
           final plOptions = _filterByRole('Project Lead');
           final amhrOptions = _filterByRole('Assistant Manager HR');
           final mhrOptions = _filterByRole('Manager HR');
-
-          final adminRoles = [
-            'Project Manager',
-            'Assistant Project Manager',
-            'Project Lead',
-            'Assistant Manager HR',
-            'Manager HR',
-          ];
+          final gpmOptions = _filterByRole('General Project Manager');
 
           final otherOptions = allUsers.where((doc) {
             final id = doc.id;
             final role = doc['role'];
-            return !adminRoles.contains(role) &&
+            final isAssigned = alreadyAssignedUserIds.contains(id);
+            final isAdmin = adminRoles.contains(role);
+
+            return !isAssigned &&
                 id != widget.currentUserId &&
+                role != 'Director' &&
                 id != _projectManagerId &&
                 id != _assistantProjectManagerId &&
                 id != _projectLeadId &&
                 id != _assistantManagerHRId &&
-                id != _managerHRId;
+                id != _managerHRId &&
+                id != _generalProjectManagerId &&
+                (widget.isSuperAdmin ? isAdmin : !isAdmin);
           }).toList();
 
           return SingleChildScrollView(
@@ -134,81 +185,104 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
               children: [
                 const SizedBox(height: 10),
 
-                // Project Manager
-                widget.role == 'Project Manager'
-                    ? _buildDropdown(
-                        label: 'Project Manager',
-                        selectedId: _projectManagerId,
-                        options: const [],
-                        onChanged: null,
-                        disabled: true,
-                      )
-                    : _buildDropdown(
-                        label: 'Project Manager',
-                        selectedId: _projectManagerId,
-                        options: pmOptions,
-                        onChanged: (val) =>
-                            setState(() => _projectManagerId = val),
-                      ),
+                if (!widget.isSuperAdmin)
+                  ...[
+                    if (widget.isGeneralTeam) ...[
+                      widget.role == 'General Project Manager'
+                          ? _buildDropdown(
+                              label: 'General Project Manager',
+                              selectedId: _generalProjectManagerId,
+                              options: const [],
+                              onChanged: null,
+                              disabled: true,
+                            )
+                          : _buildDropdown(
+                              label: 'General Project Manager',
+                              selectedId: _generalProjectManagerId,
+                              options: gpmOptions,
+                              onChanged: (val) => setState(() => _generalProjectManagerId = val),
+                            ),
+                    ] else ...[
+                      widget.role == 'Project Manager'
+                          ? _buildDropdown(
+                              label: 'Project Manager',
+                              selectedId: _projectManagerId,
+                              options: const [],
+                              onChanged: null,
+                              disabled: true,
+                            )
+                          : _buildDropdown(
+                              label: 'Project Manager',
+                              selectedId: _projectManagerId,
+                              options: pmOptions,
+                              onChanged: (val) => setState(() => _projectManagerId = val),
+                            ),
+                      widget.role == 'Assistant Project Manager'
+                          ? _buildDropdown(
+                              label: 'Assistant Project Manager',
+                              selectedId: _assistantProjectManagerId,
+                              options: const [],
+                              onChanged: null,
+                              disabled: true,
+                            )
+                          : _buildDropdown(
+                              label: 'Assistant Project Manager',
+                              selectedId: _assistantProjectManagerId,
+                              options: apmOptions,
+                              onChanged: (val) => setState(() => _assistantProjectManagerId = val),
+                            ),
+                      widget.role == 'Project Lead'
+                          ? _buildDropdown(
+                              label: 'Project Lead',
+                              selectedId: _projectLeadId,
+                              options: const [],
+                              onChanged: null,
+                              disabled: true,
+                            )
+                          : _buildDropdown(
+                              label: 'Project Lead',
+                              selectedId: _projectLeadId,
+                              options: plOptions,
+                              onChanged: (val) => setState(() => _projectLeadId = val),
+                            ),
+                    ],
 
-                // Assistant Project Manager
-                widget.role == 'Assistant Project Manager'
-                    ? _buildDropdown(
-                        label: 'Assistant Project Manager',
-                        selectedId: _assistantProjectManagerId,
-                        options: const [],
-                        onChanged: null,
-                        disabled: true,
-                      )
-                    : _buildDropdown(
-                        label: 'Assistant Project Manager',
-                        selectedId: _assistantProjectManagerId,
-                        options: apmOptions,
-                        onChanged: (val) =>
-                            setState(() => _assistantProjectManagerId = val),
-                      ),
+                    widget.role == 'Assistant Manager HR'
+                        ? _buildDropdown(
+                            label: 'Assistant Manager HR',
+                            selectedId: _assistantManagerHRId,
+                            options: const [],
+                            onChanged: null,
+                            disabled: true,
+                          )
+                        : _buildDropdown(
+                            label: 'Assistant Manager HR',
+                            selectedId: _assistantManagerHRId,
+                            options: amhrOptions,
+                            onChanged: (val) => setState(() => _assistantManagerHRId = val),
+                          ),
 
-                // Project Lead
-                widget.role == 'Project Lead'
-                    ? _buildDropdown(
-                        label: 'Project Lead',
-                        selectedId: _projectLeadId,
-                        options: const [],
-                        onChanged: null,
-                        disabled: true,
-                      )
-                    : _buildDropdown(
-                        label: 'Project Lead',
-                        selectedId: _projectLeadId,
-                        options: plOptions,
-                        onChanged: (val) =>
-                            setState(() => _projectLeadId = val),
-                      ),
-
-                // Assistant Manager HR
-                _buildDropdown(
-                  label: 'Assistant Manager HR',
-                  selectedId: _assistantManagerHRId,
-                  options: amhrOptions,
-                  onChanged: (val) =>
-                      setState(() => _assistantManagerHRId = val),
-                ),
-
-                // Manager HR
-                _buildDropdown(
-                  label: 'Manager HR',
-                  selectedId: _managerHRId,
-                  options: mhrOptions,
-                  onChanged: (val) => setState(() => _managerHRId = val),
-                ),
+                    widget.role == 'Manager HR'
+                        ? _buildDropdown(
+                            label: 'Manager HR',
+                            selectedId: _managerHRId,
+                            options: const [],
+                            onChanged: null,
+                            disabled: true,
+                          )
+                        : _buildDropdown(
+                            label: 'Manager HR',
+                            selectedId: _managerHRId,
+                            options: mhrOptions,
+                            onChanged: (val) => setState(() => _managerHRId = val),
+                          ),
+                  ],
 
                 const Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text("Other Members",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text("Other Members", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
 
@@ -241,23 +315,26 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
         icon: const Icon(Icons.done),
         label: const Text("Confirm"),
         onPressed: () {
-          if (_projectManagerId == null ||
-              _assistantProjectManagerId == null ||
-              _projectLeadId == null) {
+          if (_otherMembers.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please assign all 3 main roles.")),
+              const SnackBar(content: Text("Please select at least one Other Member.")),
             );
             return;
           }
 
           final allMembers = {
             widget.currentUserId,
-            if (_projectManagerId != widget.currentUserId)
+            if (!widget.isSuperAdmin && widget.isGeneralTeam)
+              _generalProjectManagerId,
+            if (!widget.isSuperAdmin && !widget.isGeneralTeam) ...[
               _projectManagerId,
-            if (_assistantProjectManagerId != widget.currentUserId)
               _assistantProjectManagerId,
-            if (_projectLeadId != widget.currentUserId)
               _projectLeadId,
+            ],
+            if (!widget.isSuperAdmin) ...[
+              _assistantManagerHRId,
+              _managerHRId,
+            ],
             ..._otherMembers,
           }.whereType<String>().toSet().toList();
 
@@ -268,6 +345,8 @@ class _SelectMembersPageState extends State<SelectMembersPage> {
             'projectLeadId': _projectLeadId,
             'assistantManagerHRId': _assistantManagerHRId,
             'managerHRId': _managerHRId,
+            'generalProjectManagerId': _generalProjectManagerId,
+            'adminId': widget.currentUserId, // ✅ Added to track team creator
           });
         },
       ),
