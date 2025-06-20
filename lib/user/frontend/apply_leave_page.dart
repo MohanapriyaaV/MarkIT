@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/leave_service.dart';
 import '../models/leave_application.dart';
 
@@ -39,7 +40,9 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
     setState(() {
       final startOptions = LeaveService.getStartHalfDayOptions(numberOfDays);
       if (!startOptions.contains(startHalfDayType)) {
-        startHalfDayType = LeaveService.getDefaultStartHalfDayOption(numberOfDays);
+        startHalfDayType = LeaveService.getDefaultStartHalfDayOption(
+          numberOfDays,
+        );
       }
       final endOptions = LeaveService.getEndHalfDayOptions(numberOfDays);
       if (!endOptions.contains(endHalfDayType)) {
@@ -91,6 +94,31 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showSnackBar('User not authenticated');
+      return;
+    }
+
+    // Debug: Print current user UID
+    print('Current user UID: \\${user.uid}');
+
+    // Fetch teamId for the user by checking members array
+    String? teamId;
+    try {
+      final teamSnapshot = await FirebaseFirestore.instance
+          .collection('teams')
+          .where('members', arrayContains: user.uid)
+          .limit(1)
+          .get();
+      print('Teams found: \\${teamSnapshot.docs.length}');
+      if (teamSnapshot.docs.isNotEmpty) {
+        print('Team ID: \\${teamSnapshot.docs.first.id}');
+        print('Team members: \\${teamSnapshot.docs.first['members']}');
+        teamId = teamSnapshot.docs.first.id;
+      } else {
+        _showSnackBar('No team found for user.');
+        return;
+      }
+    } catch (e) {
+      _showSnackBar('Error fetching team info.');
       return;
     }
 
@@ -154,13 +182,16 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
       halfDayType: numberOfDays == 1 && !isFullDay ? halfDayType : null,
       isStartFullDay: numberOfDays > 1 ? isStartFullDay : null,
       isEndFullDay: numberOfDays > 1 ? isEndFullDay : null,
-      startHalfDayType: numberOfDays > 1 && !isStartFullDay ? startHalfDayType : null,
+      startHalfDayType: numberOfDays > 1 && !isStartFullDay
+          ? startHalfDayType
+          : null,
       endHalfDayType: numberOfDays > 1 && !isEndFullDay ? endHalfDayType : null,
       reason: selectedReason!,
       explanation: explanationController.text.trim(),
       status: 'Pending',
       appliedAt: DateTime.now(),
       userID: user.uid,
+      teamId: teamId!,
     );
 
     try {
@@ -202,7 +233,14 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
             children: const [
               CircularProgressIndicator(color: Colors.white),
               SizedBox(height: 16),
-              Text('Submitting your leave...', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600)),
+              Text(
+                'Submitting your leave...',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -261,7 +299,11 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
               const SizedBox(height: 20),
               const Text(
                 'Leave Applied Successfully!',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -272,9 +314,13 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  leaveDetails, 
-                  style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.w500), 
-                  textAlign: TextAlign.center
+                  leaveDetails,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 20),
@@ -286,7 +332,12 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                 ),
                 child: const Text(
                   '✨ HR will reply within 16 hours',
-                  style: TextStyle(fontSize: 13, color: Colors.white, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -299,11 +350,19 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: const Color(0xFF6B46C1),
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
                   elevation: 8,
                 ),
-                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
             ],
           ),
@@ -313,28 +372,32 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
   }
 
   void _showSnackBar(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Container(
-        decoration: BoxDecoration(
-          gradient: backgroundGradient.scale(0.8),
-          borderRadius: BorderRadius.circular(12),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: backgroundGradient.scale(0.8),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        child: Text(
-          message, 
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)
-        ),
+        backgroundColor: Colors.transparent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        margin: const EdgeInsets.all(16),
+        clipBehavior: Clip.antiAlias,
       ),
-      backgroundColor: Colors.transparent,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
-      margin: const EdgeInsets.all(16),
-      clipBehavior: Clip.antiAlias,
-    ),
-  );
-}
+    );
+  }
+
   Widget _buildCard({required Widget child}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -366,21 +429,41 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
           child: Icon(icon, color: Colors.white, size: 22),
         ),
         const SizedBox(width: 16),
-        Text(title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 19,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildRadioOption(String title, String subtitle, bool value, bool groupValue, ValueChanged<bool?> onChanged) {
+  Widget _buildRadioOption(
+    String title,
+    String subtitle,
+    bool value,
+    bool groupValue,
+    ValueChanged<bool?> onChanged,
+  ) {
     final isSelected = groupValue == value;
     return GestureDetector(
       onTap: () => onChanged(value),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6B46C1).withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+          color: isSelected
+              ? const Color(0xFF6B46C1).withOpacity(0.1)
+              : Colors.grey.withOpacity(0.05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? const Color(0xFF6B46C1) : Colors.grey.withOpacity(0.3), width: 2),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF6B46C1)
+                : Colors.grey.withOpacity(0.3),
+            width: 2,
+          ),
         ),
         child: Row(
           children: [
@@ -394,8 +477,18 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87, fontSize: 15)),
-                  Text(subtitle, style: TextStyle(color: Colors.black54, fontSize: 13)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(color: Colors.black54, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -426,7 +519,11 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 24),
+                      icon: const Icon(
+                        Icons.arrow_back_ios,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.white.withOpacity(0.2),
                         padding: const EdgeInsets.all(12),
@@ -447,7 +544,7 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                   ],
                 ),
               ),
-              
+
               // Main Content
               Expanded(
                 child: ListView(
@@ -458,7 +555,10 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionHeader('Number of Days', Icons.calendar_month),
+                          _buildSectionHeader(
+                            'Number of Days',
+                            Icons.calendar_month,
+                          ),
                           const SizedBox(height: 20),
                           Row(
                             children: [
@@ -471,16 +571,43 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
-                                      onPressed: numberOfDays > 1 ? () => _updateNumberOfDays(numberOfDays - 1) : null,
-                                      icon: Icon(Icons.remove, color: numberOfDays > 1 ? Colors.white : Colors.white54),
+                                      onPressed: numberOfDays > 1
+                                          ? () => _updateNumberOfDays(
+                                              numberOfDays - 1,
+                                            )
+                                          : null,
+                                      icon: Icon(
+                                        Icons.remove,
+                                        color: numberOfDays > 1
+                                            ? Colors.white
+                                            : Colors.white54,
+                                      ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                                      child: Text(numberOfDays.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                      ),
+                                      child: Text(
+                                        numberOfDays.toString(),
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
                                     IconButton(
-                                      onPressed: numberOfDays < 30 ? () => _updateNumberOfDays(numberOfDays + 1) : null,
-                                      icon: Icon(Icons.add, color: numberOfDays < 30 ? Colors.white : Colors.white54),
+                                      onPressed: numberOfDays < 30
+                                          ? () => _updateNumberOfDays(
+                                              numberOfDays + 1,
+                                            )
+                                          : null,
+                                      icon: Icon(
+                                        Icons.add,
+                                        color: numberOfDays < 30
+                                            ? Colors.white
+                                            : Colors.white54,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -488,14 +615,21 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                               const Spacer(),
                               if (startDate != null && endDate != null)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
                                   decoration: BoxDecoration(
-                                    gradient: backgroundGradient, 
-                                    borderRadius: BorderRadius.circular(25)
+                                    gradient: backgroundGradient,
+                                    borderRadius: BorderRadius.circular(25),
                                   ),
                                   child: Text(
                                     '${LeaveService.calculateLeaveDuration(numberOfDays: numberOfDays, isFullDay: isFullDay, isStartFullDay: isStartFullDay, isEndFullDay: isEndFullDay)} days',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -514,14 +648,32 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                Expanded(child: _buildRadioOption('Full Day', '9:00 AM - 6:00 PM', true, isFullDay, (v) => setState(() => isFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Full Day',
+                                    '9:00 AM - 6:00 PM',
+                                    true,
+                                    isFullDay,
+                                    (v) => setState(() => isFullDay = v!),
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
-                                Expanded(child: _buildRadioOption('Half Day', 'FN or AF', false, isFullDay, (v) => setState(() => isFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Half Day',
+                                    'FN or AF',
+                                    false,
+                                    isFullDay,
+                                    (v) => setState(() => isFullDay = v!),
+                                  ),
+                                ),
                               ],
                             ),
                             if (!isFullDay) ...[
                               const SizedBox(height: 20),
-                              ...LeaveService.getStartHalfDayOptions(numberOfDays).map(
+                              ...LeaveService.getStartHalfDayOptions(
+                                numberOfDays,
+                              ).map(
                                 (option) => Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: GestureDetector(
@@ -533,9 +685,18 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                     child: Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: halfDayType == option ? const Color(0xFF6B46C1).withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+                                        color: halfDayType == option
+                                            ? const Color(
+                                                0xFF6B46C1,
+                                              ).withOpacity(0.1)
+                                            : Colors.grey.withOpacity(0.05),
                                         borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(color: halfDayType == option ? const Color(0xFF6B46C1) : Colors.grey.withOpacity(0.3), width: 2),
+                                        border: Border.all(
+                                          color: halfDayType == option
+                                              ? const Color(0xFF6B46C1)
+                                              : Colors.grey.withOpacity(0.3),
+                                          width: 2,
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
@@ -547,19 +708,33 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                               startHalfDayType = v;
                                               endHalfDayType = v;
                                             }),
-                                            activeColor: const Color(0xFF6B46C1),
+                                            activeColor: const Color(
+                                              0xFF6B46C1,
+                                            ),
                                           ),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  option == 'FN' ? 'Forenoon (FN)' : 'Afternoon (AF)',
-                                                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87, fontSize: 15),
+                                                  option == 'FN'
+                                                      ? 'Forenoon (FN)'
+                                                      : 'Afternoon (AF)',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.black87,
+                                                    fontSize: 15,
+                                                  ),
                                                 ),
                                                 Text(
-                                                  option == 'FN' ? '9:00 AM - 1:00 PM' : '1:00 PM - 6:00 PM',
-                                                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                                                  option == 'FN'
+                                                      ? '9:00 AM - 1:00 PM'
+                                                      : '1:00 PM - 6:00 PM',
+                                                  style: TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 13,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -585,9 +760,25 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                Expanded(child: _buildRadioOption('Full Day', '9:00 AM - 6:00 PM', true, isStartFullDay, (v) => setState(() => isStartFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Full Day',
+                                    '9:00 AM - 6:00 PM',
+                                    true,
+                                    isStartFullDay,
+                                    (v) => setState(() => isStartFullDay = v!),
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
-                                Expanded(child: _buildRadioOption('Half Day', 'Afternoon only', false, isStartFullDay, (v) => setState(() => isStartFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Half Day',
+                                    'Afternoon only',
+                                    false,
+                                    isStartFullDay,
+                                    (v) => setState(() => isStartFullDay = v!),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -601,9 +792,25 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                Expanded(child: _buildRadioOption('Full Day', '9:00 AM - 6:00 PM', true, isEndFullDay, (v) => setState(() => isEndFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Full Day',
+                                    '9:00 AM - 6:00 PM',
+                                    true,
+                                    isEndFullDay,
+                                    (v) => setState(() => isEndFullDay = v!),
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
-                                Expanded(child: _buildRadioOption('Half Day', 'Forenoon only', false, isEndFullDay, (v) => setState(() => isEndFullDay = v!))),
+                                Expanded(
+                                  child: _buildRadioOption(
+                                    'Half Day',
+                                    'Forenoon only',
+                                    false,
+                                    isEndFullDay,
+                                    (v) => setState(() => isEndFullDay = v!),
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -616,9 +823,16 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionHeader(numberOfDays == 1 ? 'Select Date' : 'Select Dates', Icons.date_range),
+                          _buildSectionHeader(
+                            numberOfDays == 1 ? 'Select Date' : 'Select Dates',
+                            Icons.date_range,
+                          ),
                           const SizedBox(height: 20),
-                          _buildDateButton('Start Date', startDate, _pickStartDate),
+                          _buildDateButton(
+                            'Start Date',
+                            startDate,
+                            _pickStartDate,
+                          ),
                           if (numberOfDays > 1) ...[
                             const SizedBox(height: 16),
                             _buildDateButton('End Date', endDate, _pickEndDate),
@@ -632,12 +846,17 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionHeader('Leave Details', Icons.description),
+                          _buildSectionHeader(
+                            'Leave Details',
+                            Icons.description,
+                          ),
                           const SizedBox(height: 20),
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.05),
-                              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: DropdownButtonFormField<String>(
@@ -648,29 +867,50 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                 hintText: 'Choose Reason',
                                 hintStyle: TextStyle(color: Colors.black54),
                               ),
-                              style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
                               dropdownColor: Colors.white,
                               items: LeaveService.getLeaveReasons()
-                                  .map((reason) => DropdownMenuItem(
-                                    value: reason, 
-                                    child: Text(reason, style: const TextStyle(color: Colors.black87))
-                                  ))
+                                  .map(
+                                    (reason) => DropdownMenuItem(
+                                      value: reason,
+                                      child: Text(
+                                        reason,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                  )
                                   .toList(),
-                              onChanged: (value) => setState(() => selectedReason = value),
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                              onChanged: (value) =>
+                                  setState(() => selectedReason = value),
+                              icon: const Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.black54,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.grey.withOpacity(0.05),
-                              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: TextField(
                               controller: explanationController,
                               maxLines: 4,
-                              style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
                               decoration: const InputDecoration(
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.all(20),
@@ -703,10 +943,21 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                       gradient: backgroundGradient,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: const Icon(Icons.summarize, color: Colors.white, size: 22),
+                                    child: const Icon(
+                                      Icons.summarize,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
                                   ),
                                   const SizedBox(width: 16),
-                                  const Text('Leave Summary', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                  const Text(
+                                    'Leave Summary',
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -721,14 +972,19 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                                   isEndFullDay: isEndFullDay,
                                   startHalfDayType: startHalfDayType,
                                   endHalfDayType: endHalfDayType,
-                                  leaveDuration: LeaveService.calculateLeaveDuration(
-                                    numberOfDays: numberOfDays,
-                                    isFullDay: isFullDay,
-                                    isStartFullDay: isStartFullDay,
-                                    isEndFullDay: isEndFullDay,
-                                  ),
+                                  leaveDuration:
+                                      LeaveService.calculateLeaveDuration(
+                                        numberOfDays: numberOfDays,
+                                        isFullDay: isFullDay,
+                                        isStartFullDay: isStartFullDay,
+                                        isEndFullDay: isEndFullDay,
+                                      ),
                                 ),
-                                style: const TextStyle(fontSize: 15, color: Colors.black87, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
@@ -743,10 +999,10 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2), 
-                            blurRadius: 15, 
-                            offset: const Offset(0, 8)
-                          )
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
                         ],
                       ),
                       child: ElevatedButton(
@@ -756,15 +1012,20 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
                           foregroundColor: Colors.white,
                           shadowColor: Colors.transparent,
                           minimumSize: const Size(double.infinity, 64),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         ),
                         child: const Text(
                           'Submit Leave Application',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20), // Bottom padding
                   ],
                 ),
@@ -793,15 +1054,27 @@ class _ApplyLeavePageState extends State<ApplyLeavePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12)),
                   Text(
-                    date != null ? LeaveService.formatDate(date) : 'Select $label',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+                    label,
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  Text(
+                    date != null
+                        ? LeaveService.formatDate(date)
+                        : 'Select $label',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.black54, size: 16),
+            const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.black54,
+              size: 16,
+            ),
           ],
         ),
       ),

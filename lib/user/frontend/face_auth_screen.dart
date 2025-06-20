@@ -41,8 +41,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen> {
   bool? _locationAuthenticated;
   String _locationMessage = '';
 
-  static const double officeLat = 11.1086209; // Replace with your office latitude
-  static const double officeLng = 76.996173; // Replace with your office longitude
+  static const double officeLat =
+      11.1086209; // Replace with your office latitude
+  static const double officeLng =
+      76.996173; // Replace with your office longitude
   static const double allowedDistance = 10000; // meters
 
   @override
@@ -126,9 +128,14 @@ class _FaceAuthScreenState extends State<FaceAuthScreen> {
     _isDetecting = true;
 
     try {
+      debugPrint(
+        'Camera image format: \\${image.format.raw}, group: \\${image.format.group}',
+      );
+      debugPrint('Planes count: \\${image.planes.length}');
       final rotation = FaceUtils.getImageRotation(_direction);
       final inputImage = FaceUtils.buildInputImage(image, rotation);
       final faces = await _faceDetector.processImage(inputImage);
+      debugPrint('Faces detected: \\${faces.length}');
 
       if (mounted) {
         setState(() => _faces = faces);
@@ -138,9 +145,10 @@ class _FaceAuthScreenState extends State<FaceAuthScreen> {
         _handleFaceDetection(faces.first);
       }
     } catch (e) {
+      debugPrint('Face detection error: \\${e.toString()}');
       if (!_isEmulator) {
         setState(() {
-          _errorMessage = 'Face detection error: ${e.toString()}';
+          _errorMessage = 'Face detection error: \\${e.toString()}';
         });
       }
     } finally {

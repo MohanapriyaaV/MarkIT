@@ -16,6 +16,7 @@ class LeaveApplication {
   final String status;
   final DateTime appliedAt;
   final String userID;
+  final String teamId;
 
   LeaveApplication({
     required this.startDateTime,
@@ -33,6 +34,7 @@ class LeaveApplication {
     required this.status,
     required this.appliedAt,
     required this.userID,
+    required this.teamId,
   });
 
   Map<String, dynamic> toMap() {
@@ -52,6 +54,7 @@ class LeaveApplication {
       'status': status,
       'appliedAt': Timestamp.fromDate(appliedAt),
       'userID': userID,
+      'teamId': teamId,
     };
   }
 }

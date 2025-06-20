@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'team_list_page.dart'; // Add this import
+import 'leave_approvals_page.dart'; // Import the Leave Approvals page
+import 'approved_leaves_page.dart'; // Import the Approved Leaves page
 
 class AdminDashboard extends StatefulWidget {
   final Map<String, dynamic>? userData;
-  
+
   const AdminDashboard({super.key, this.userData});
 
   @override
@@ -42,11 +44,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFDC143C),
-              Color(0xFFB22222),
-              Color(0xFF8B0000),
-            ],
+            colors: [Color(0xFFDC143C), Color(0xFFB22222), Color(0xFF8B0000)],
           ),
         ),
         child: SafeArea(
@@ -74,7 +72,7 @@ class _AdminDashboardState extends State<AdminDashboard>
   Widget _buildAdminAppBar() {
     String adminName = "Admin";
     String adminRole = "Administrator";
-    
+
     if (widget.userData != null) {
       adminName = widget.userData!['name'] ?? 'Admin';
       adminRole = widget.userData!['role'] ?? 'Administrator';
@@ -157,9 +155,9 @@ class _AdminDashboardState extends State<AdminDashboard>
         children: [
           // Stats Cards
           _buildStatsSection(),
-          
+
           const SizedBox(height: 30),
-          
+
           // Admin Functions
           const Text(
             'Admin Functions',
@@ -169,12 +167,12 @@ class _AdminDashboardState extends State<AdminDashboard>
               fontWeight: FontWeight.bold,
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Admin Function Grid
           _buildAdminFunctionsGrid(),
-          
+
           // Add bottom padding for better scrolling experience
           const SizedBox(height: 40),
         ],
@@ -226,11 +224,7 @@ class _AdminDashboardState extends State<AdminDashboard>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                icon,
-                color: color,
-                size: 30,
-              ),
+              Icon(icon, color: color, size: 30),
               Text(
                 value,
                 style: const TextStyle(
@@ -363,11 +357,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                       width: 1.5,
                     ),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 28,
-                    color: Colors.white,
-                  ),
+                  child: Icon(icon, size: 28, color: Colors.white),
                 ),
                 const SizedBox(height: 12),
                 Flexible(
@@ -413,7 +403,17 @@ class _AdminDashboardState extends State<AdminDashboard>
     if (functionTitle == 'User Management') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) =>  TeamListPage ()),
+        MaterialPageRoute(builder: (context) => TeamListPage()),
+      );
+    } else if (functionTitle == 'Leave Approvals') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => LeaveApprovalsPage()),
+      );
+    } else if (functionTitle == 'Approved Leaves') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ApprovedLeavesPage()),
       );
     } else {
       // Show snackbar for other functions
@@ -429,7 +429,7 @@ class _AdminDashboardState extends State<AdminDashboard>
         ),
       );
     }
-    
+
     // TODO: Implement navigation to other admin function pages
     // Example:
     // else if (functionTitle == 'Leave Approvals') {

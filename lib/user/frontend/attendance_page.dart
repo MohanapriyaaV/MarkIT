@@ -53,8 +53,10 @@ class _AttendancePageState extends State<AttendancePage>
       curve: Curves.elasticOut,
     );
 
-    _pulseController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -130,8 +132,10 @@ class _AttendancePageState extends State<AttendancePage>
         );
         return;
       }
-      final statusMessage =
-          await _attendanceService.markAttendance(widget.empId, _remark);
+      final statusMessage = await _attendanceService.markAttendance(
+        widget.empId,
+        _remark,
+      );
       setState(() {
         _attendanceMarked = true;
         _statusMessage = statusMessage;
@@ -318,7 +322,9 @@ class _AttendancePageState extends State<AttendancePage>
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(25),
                         color: Colors.white.withOpacity(0.9),
-                        border: Border.all(color: Colors.white.withOpacity(0.5)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -362,7 +368,10 @@ class _AttendancePageState extends State<AttendancePage>
                           ),
                           const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.05),
                               borderRadius: BorderRadius.circular(20),
@@ -389,12 +398,16 @@ class _AttendancePageState extends State<AttendancePage>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
                           color: accentColor.withOpacity(0.1),
-                          border: Border.all(color: accentColor.withOpacity(0.3)),
+                          border: Border.all(
+                            color: accentColor.withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              _currentSession == 'FN' ? Icons.wb_sunny : Icons.wb_twilight,
+                              _currentSession == 'FN'
+                                  ? Icons.wb_sunny
+                                  : Icons.wb_twilight,
                               color: accentColor,
                               size: 24,
                             ),
@@ -440,7 +453,9 @@ class _AttendancePageState extends State<AttendancePage>
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(25),
                         color: Colors.white.withOpacity(0.8),
-                        border: Border.all(color: Colors.white.withOpacity(0.4)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.4),
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -495,11 +510,7 @@ class _AttendancePageState extends State<AttendancePage>
     if (_isSunday) {
       return Column(
         children: [
-          Icon(
-            Icons.weekend_rounded,
-            size: 48,
-            color: Colors.orange,
-          ),
+          Icon(Icons.weekend_rounded, size: 48, color: Colors.orange),
           const SizedBox(height: 16),
           const Text(
             "It's Sunday!",
@@ -524,11 +535,7 @@ class _AttendancePageState extends State<AttendancePage>
     } else if (_attendanceMarked) {
       return Column(
         children: [
-          const Icon(
-            Icons.check_circle_rounded,
-            size: 48,
-            color: Colors.green,
-          ),
+          const Icon(Icons.check_circle_rounded, size: 48, color: Colors.green),
           const SizedBox(height: 16),
           const Text(
             "Success!",
@@ -556,25 +563,31 @@ class _AttendancePageState extends State<AttendancePage>
           ScaleTransition(
             scale: _pulseAnimation,
             child: ElevatedButton.icon(
-              icon: _isLoading 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.fingerprint_rounded),
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.fingerprint_rounded),
               label: Text(
                 _isLoading ? "Marking..." : "Mark Attendance",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               onPressed: _isLoading ? null : _markAttendance,
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -616,7 +629,9 @@ class _AttendancePageState extends State<AttendancePage>
       return Column(
         children: [
           Icon(
-            _isLateFN || _isTooLate ? Icons.schedule_rounded : Icons.schedule_rounded,
+            _isLateFN || _isTooLate
+                ? Icons.schedule_rounded
+                : Icons.schedule_rounded,
             size: 48,
             color: _isLateFN ? Colors.orange : Colors.red,
           ),
@@ -631,9 +646,9 @@ class _AttendancePageState extends State<AttendancePage>
           ),
           const SizedBox(height: 8),
           Text(
-            _statusMessage.isNotEmpty 
-              ? _statusMessage 
-              : "You are not within the attendance window. Please try later.",
+            _statusMessage.isNotEmpty
+                ? _statusMessage
+                : "You are not within the attendance window. Please try later.",
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
@@ -645,18 +660,19 @@ class _AttendancePageState extends State<AttendancePage>
           const Text(
             "Attendance Hours:\nFN: 7:00 AM - 9:05 AM\nAN: 12:00 PM - 1:05 PM",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.black54,
-              height: 1.5,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.black54, height: 1.5),
           ),
         ],
       );
     }
   }
 
-  Widget _buildStatItem(IconData icon, String title, String value, Color color) {
+  Widget _buildStatItem(
+    IconData icon,
+    String title,
+    String value,
+    Color color,
+  ) {
     return Column(
       children: [
         Icon(icon, color: color, size: 24),

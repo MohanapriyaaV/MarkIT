@@ -10,7 +10,9 @@ import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 class FaceUtils {
   FaceUtils._();
 
-  static Future<CameraDescription> getCamera(CameraLensDirection direction) async {
+  static Future<CameraDescription> getCamera(
+    CameraLensDirection direction,
+  ) async {
     try {
       final cameras = await availableCameras();
       // Try to find the requested camera direction
@@ -31,7 +33,10 @@ class FaceUtils {
     }
   }
 
-  static InputImage buildInputImage(CameraImage image, InputImageRotation rotation) {
+  static InputImage buildInputImage(
+    CameraImage image,
+    InputImageRotation rotation,
+  ) {
     final format = InputImageFormatValue.fromRawValue(image.format.raw);
     if (format == null) {
       throw Exception('Unsupported image format: ${image.format.raw}');
@@ -50,10 +55,7 @@ class FaceUtils {
     } else {
       bytes = _concatenatePlanes(image.planes);
     }
-    return InputImage.fromBytes(
-      bytes: bytes,
-      metadata: metadata,
-    );
+    return InputImage.fromBytes(bytes: bytes, metadata: metadata);
   }
 
   static Uint8List _concatenatePlanes(List<Plane> planes) {
