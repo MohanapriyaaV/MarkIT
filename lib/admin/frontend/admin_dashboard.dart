@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'team_list_page.dart'; // Add this import
-import 'leave_approvals_page.dart'; // Import the Leave Approvals page
-import 'approved_leaves_page.dart'; // Import the Approved Leaves page
+import 'attendance_report_page.dart';
+import 'team_list_page.dart';
+import 'leave_approvals_page.dart';
+import 'approved_leaves_page.dart';
 
 class AdminDashboard extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -52,9 +53,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             opacity: _fadeAnimation,
             child: Column(
               children: [
-                // Custom App Bar (Fixed)
                 _buildAdminAppBar(),
-                // Scrollable Dashboard Content
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
@@ -153,12 +152,8 @@ class _AdminDashboardState extends State<AdminDashboard>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Stats Cards
           _buildStatsSection(),
-
           const SizedBox(height: 30),
-
-          // Admin Functions
           const Text(
             'Admin Functions',
             style: TextStyle(
@@ -167,13 +162,8 @@ class _AdminDashboardState extends State<AdminDashboard>
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 20),
-
-          // Admin Function Grid
           _buildAdminFunctionsGrid(),
-
-          // Add bottom padding for better scrolling experience
           const SizedBox(height: 40),
         ],
       ),
@@ -399,7 +389,6 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   void _handleAdminFunctionTap(String functionTitle) {
-    // Navigate to specific pages based on function title
     if (functionTitle == 'User Management') {
       Navigator.push(
         context,
@@ -408,15 +397,19 @@ class _AdminDashboardState extends State<AdminDashboard>
     } else if (functionTitle == 'Leave Approvals') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => LeaveApprovalsPage()),
+        MaterialPageRoute(builder: (context) => const LeaveApprovalsPage()),
       );
     } else if (functionTitle == 'Approved Leaves') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => ApprovedLeavesPage()),
+        MaterialPageRoute(builder: (context) => const ApprovedLeavesPage()),
+      );
+    } else if (functionTitle == 'Attendance Reports') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AttendanceReportPage()),
       );
     } else {
-      // Show snackbar for other functions
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$functionTitle functionality coming soon!'),
@@ -429,13 +422,5 @@ class _AdminDashboardState extends State<AdminDashboard>
         ),
       );
     }
-
-    // TODO: Implement navigation to other admin function pages
-    // Example:
-    // else if (functionTitle == 'Leave Approvals') {
-    //   Navigator.push(context, MaterialPageRoute(builder: (context) => LeaveApprovalsPage()));
-    // } else if (functionTitle == 'Admin Notifications') {
-    //   Navigator.push(context, MaterialPageRoute(builder: (context) => AdminNotificationsPage()));
-    // }
   }
 }
