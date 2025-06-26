@@ -1,15 +1,13 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // Flutter plugin
-    id("dev.flutter.flutter-gradle-plugin")
-    // Apply Google services plugin WITHOUT version here
-    id("com.google.gms.google-services")
+    id("dev.flutter.flutter-gradle-plugin") // Flutter plugin
+    id("com.google.gms.google-services")    // Firebase services
 }
 
 android {
     namespace = "com.example.myapp"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34  // Make sure compileSdk is 30+ (for MANAGE_EXTERNAL_STORAGE support)
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -18,15 +16,20 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
         applicationId = "com.example.myapp"
-        minSdk = 23
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 23                    // Minimum required for MANAGE_EXTERNAL_STORAGE
+        targetSdk = 30                 // ✅ Use targetSdk = 30 for full file access
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // ✅ Required for file access from scoped storage in Android 11+
+        manifestPlaceholders += mapOf(
+            "requestLegacyExternalStorage" to "true"
+        )
     }
 
     buildTypes {
@@ -37,17 +40,15 @@ android {
 }
 
 dependencies {
-    // Firebase BoM to manage Firebase dependencies versions
+    // Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:33.14.0"))
 
-    // Firebase Analytics (example Firebase product)
+    // Example Firebase service
     implementation("com.google.firebase:firebase-analytics")
-    // Add other Firebase dependencies as needed
 }
 
 flutter {
     source = "../.."
 }
 
-// IMPORTANT: REMOVE this line if present, because it's redundant and can cause conflicts:
-// apply(plugin = "com.google.gms.google-services")
+// ✅ Do NOT include: apply(plugin = "com.google.gms.google-services")
