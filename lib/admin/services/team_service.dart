@@ -7,7 +7,17 @@ class TeamService {
   Future<void> createTeam(TeamModel team) async {
     final teamRef = _firestore.collection('teams').doc();
     final updatedTeam = team.copyWith(teamId: teamRef.id);
-    await teamRef.set(updatedTeam.toMap());
+    // Build admins array from all 5 admin roles (skip nulls)
+    final admins = [
+      updatedTeam.projectManagerId,
+      updatedTeam.assistantProjectManagerId,
+      updatedTeam.projectLeadId,
+      updatedTeam.assistantManagerHRId,
+      updatedTeam.managerHRId,
+    ].whereType<String>().toList();
+    final teamMap = updatedTeam.toMap();
+    teamMap['admins'] = admins;
+    await teamRef.set(teamMap);
     await _updateMembers(updatedTeam);
   }
 
@@ -15,7 +25,17 @@ class TeamService {
     if (team.teamId.isEmpty) {
       throw Exception("Team ID cannot be empty for update.");
     }
-    await _firestore.collection('teams').doc(team.teamId).update(team.toMap());
+    // Build admins array from all 5 admin roles (skip nulls)
+    final admins = [
+      team.projectManagerId,
+      team.assistantProjectManagerId,
+      team.projectLeadId,
+      team.assistantManagerHRId,
+      team.managerHRId,
+    ].whereType<String>().toList();
+    final teamMap = team.toMap();
+    teamMap['admins'] = admins;
+    await _firestore.collection('teams').doc(team.teamId).update(teamMap);
     await _updateMembers(team);
   }
 

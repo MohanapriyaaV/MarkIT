@@ -183,6 +183,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> {
         // Separate admins and members
         final adminIds = <String?>[
           _projectManagerId,
+          _assistantProjectManagerId, // <-- include Assistant Project Manager
           _projectLeadId,
           _assistantManagerHRId,
           _managerHRId,
