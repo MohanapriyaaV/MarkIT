@@ -21,6 +21,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   late AnimationController _pulseController;
   late AnimationController _gradientController;
   late AnimationController _shimmerController;
+  late AnimationController _waveController;
+  late AnimationController _breatheController;
+  late AnimationController _floatController;
   
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -28,6 +31,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   late Animation<double> _pulseAnimation;
   late Animation<double> _gradientAnimation;
   late Animation<double> _shimmerAnimation;
+  late Animation<double> _waveAnimation;
+  late Animation<double> _breatheAnimation;
+  late Animation<double> _floatAnimation;
 
   @override
   void initState() {
@@ -35,32 +41,47 @@ class _AdminDashboardState extends State<AdminDashboard>
     
     // Initialize animation controllers
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
     
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     
     _rotationController = AnimationController(
-      duration: const Duration(seconds: 15),
+      duration: const Duration(seconds: 20),
       vsync: this,
     );
     
     _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
       vsync: this,
     );
     
     _gradientController = AnimationController(
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 6),
       vsync: this,
     );
     
     _shimmerController = AnimationController(
       duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    
+    _waveController = AnimationController(
+      duration: const Duration(seconds: 4),
+      vsync: this,
+    );
+    
+    _breatheController = AnimationController(
+      duration: const Duration(seconds: 4),
+      vsync: this,
+    );
+    
+    _floatController = AnimationController(
+      duration: const Duration(seconds: 3),
       vsync: this,
     );
     
@@ -70,7 +91,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
     
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _slideController, curve: Curves.elasticOut));
     
@@ -78,7 +99,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       CurvedAnimation(parent: _rotationController, curve: Curves.linear),
     );
     
-    _pulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     
@@ -90,6 +111,18 @@ class _AdminDashboardState extends State<AdminDashboard>
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
     
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _waveController, curve: Curves.easeInOut),
+    );
+    
+    _breatheAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
+      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
+    );
+    
+    _floatAnimation = Tween<double>(begin: -5.0, end: 5.0).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+    
     // Start animations
     _fadeController.forward();
     _slideController.forward();
@@ -97,6 +130,9 @@ class _AdminDashboardState extends State<AdminDashboard>
     _pulseController.repeat(reverse: true);
     _gradientController.repeat(reverse: true);
     _shimmerController.repeat();
+    _waveController.repeat();
+    _breatheController.repeat(reverse: true);
+    _floatController.repeat(reverse: true);
   }
 
   @override
@@ -107,14 +143,18 @@ class _AdminDashboardState extends State<AdminDashboard>
     _pulseController.dispose();
     _gradientController.dispose();
     _shimmerController.dispose();
+    _waveController.dispose();
+    _breatheController.dispose();
+    _floatController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFB),
       body: AnimatedBuilder(
-        animation: _gradientController,
+        animation: Listenable.merge([_gradientController, _waveController]),
         builder: (context, child) {
           return Container(
             decoration: BoxDecoration(
@@ -122,12 +162,13 @@ class _AdminDashboardState extends State<AdminDashboard>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color.lerp(const Color(0xFF0F0F23), const Color(0xFF1A1A2E), _gradientAnimation.value)!,
-                  Color.lerp(const Color(0xFF1A1A2E), const Color(0xFF16213E), _gradientAnimation.value)!,
-                  Color.lerp(const Color(0xFF16213E), const Color(0xFF0F3460), _gradientAnimation.value)!,
-                  Color.lerp(const Color(0xFF0F3460), const Color(0xFF1A1A2E), _gradientAnimation.value)!,
+                  Color.lerp(const Color(0xFFF8FAFB), const Color(0xFFECFDF5), _gradientAnimation.value)!,
+                  Color.lerp(const Color(0xFFECFDF5), const Color(0xFFF0FDFA), _gradientAnimation.value)!,
+                  Color.lerp(const Color(0xFFF0FDFA), const Color(0xFFE6FFFA), _gradientAnimation.value)!,
+                  Color.lerp(const Color(0xFFE6FFFA), const Color(0xFFF8FAFB), _gradientAnimation.value)!,
                 ],
                 stops: const [0.0, 0.3, 0.7, 1.0],
+                transform: GradientRotation(_waveAnimation.value * 0.1),
               ),
             ),
             child: SafeArea(
@@ -164,155 +205,158 @@ class _AdminDashboardState extends State<AdminDashboard>
       adminRole = widget.userData!['role'] ?? 'Administrator';
     }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withOpacity(0.08),
-            Colors.white.withOpacity(0.03),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _pulseAnimation.value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF00F5FF), Color(0xFF0099FF)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF00F5FF).withOpacity(0.5),
-                            blurRadius: 15,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+    return AnimatedBuilder(
+      animation: _floatController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _floatAnimation.value * 0.5),
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF0F766E),
+                  Color(0xFF0D9488),
+                  Color(0xFF14B8A6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0F766E).withOpacity(0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: const Color(0xFF14B8A6).withOpacity(0.2),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -4,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
                     AnimatedBuilder(
-                      animation: _shimmerController,
+                      animation: _breatheController,
                       builder: (context, child) {
-                        return ShaderMask(
-                          shaderCallback: (bounds) {
-                            return LinearGradient(
-                              colors: const [
-                                Color(0xFF00F5FF),
-                                Color(0xFF0099FF),
-                                Color(0xFF00F5FF),
+                        return Transform.scale(
+                          scale: _breatheAnimation.value,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
                               ],
-                              stops: [
-                                (_shimmerAnimation.value - 1).clamp(0.0, 1.0),
-                                _shimmerAnimation.value.clamp(0.0, 1.0),
-                                (_shimmerAnimation.value + 1).clamp(0.0, 1.0),
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ).createShader(bounds);
-                          },
-                          child: const Text(
-                            'Admin Dashboard',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                            ),
+                            child: IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Welcome back, $adminName',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedBuilder(
-                animation: _rotationAnimation,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: _rotationAnimation.value * 6.283,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF6B6B).withOpacity(0.5),
-                            blurRadius: 15,
-                            spreadRadius: 2,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _shimmerController,
+                            builder: (context, child) {
+                              return ShaderMask(
+                                shaderCallback: (bounds) {
+                                  return LinearGradient(
+                                    colors: const [
+                                      Colors.white,
+                                      Color(0xFFB2F5EA),
+                                      Colors.white,
+                                    ],
+                                    stops: [
+                                      (_shimmerAnimation.value - 1).clamp(0.0, 1.0),
+                                      _shimmerAnimation.value.clamp(0.0, 1.0),
+                                      (_shimmerAnimation.value + 1).clamp(0.0, 1.0),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ).createShader(bounds);
+                                },
+                                child: const Text(
+                                  'Admin Dashboard',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Welcome back, $adminName',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.admin_panel_settings,
-                        color: Colors.white,
-                        size: 28,
-                      ),
                     ),
-                  );
-                },
-              ),
-            ],
+                    AnimatedBuilder(
+                      animation: _rotationController,
+                      builder: (context, child) {
+                        return Transform.rotate(
+                          angle: _rotationController.value * 6.283,
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.admin_panel_settings,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -324,21 +368,25 @@ class _AdminDashboardState extends State<AdminDashboard>
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildStatsSection(),
-          const SizedBox(height: 30),
-          ShaderMask(
-            shaderCallback: (bounds) => const LinearGradient(
-              colors: [Color(0xFF00F5FF), Color(0xFF0099FF)],
-            ).createShader(bounds),
-            child: const Text(
-              'Admin Functions',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          const SizedBox(height: 32),
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _pulseAnimation.value * 0.02 + 0.98,
+                child: Text(
+                  'Admin Functions',
+                  style: TextStyle(
+                    color: const Color(0xFF0F766E),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           _buildAdminFunctionsGrid(),
           const SizedBox(height: 40),
         ],
@@ -352,35 +400,51 @@ class _AdminDashboardState extends State<AdminDashboard>
         Expanded(
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.elasticOut,
-            builder: (context, value, child) {
-              return Transform.scale(
-                scale: value,
-                child: _buildStatCard(
-                  title: 'Total Users',
-                  value: '125',
-                  icon: Icons.people,
-                  gradientColors: [const Color(0xFF00F5FF), const Color(0xFF0099FF)],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
             duration: const Duration(milliseconds: 1200),
             curve: Curves.elasticOut,
             builder: (context, value, child) {
               return Transform.scale(
                 scale: value,
-                child: _buildStatCard(
-                  title: 'Pending Requests',
-                  value: '8',
-                  icon: Icons.pending_actions,
-                  gradientColors: [const Color(0xFF4ECDC4), const Color(0xFF44A08D)],
+                child: AnimatedBuilder(
+                  animation: _floatController,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _floatAnimation.value * 0.3),
+                      child: _buildStatCard(
+                        title: 'Total Users',
+                        value: '125',
+                        icon: Icons.people_outline,
+                        gradientColors: [const Color(0xFF0F766E), const Color(0xFF0D9488)],
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 1400),
+            curve: Curves.elasticOut,
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: value,
+                child: AnimatedBuilder(
+                  animation: _floatController,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, -_floatAnimation.value * 0.3),
+                      child: _buildStatCard(
+                        title: 'Pending Requests',
+                        value: '8',
+                        icon: Icons.pending_actions_outlined,
+                        gradientColors: [const Color(0xFF14B8A6), const Color(0xFF06B6D4)],
+                      ),
+                    );
+                  },
                 ),
               );
             },
@@ -397,79 +461,87 @@ class _AdminDashboardState extends State<AdminDashboard>
     required List<Color> gradientColors,
   }) {
     return AnimatedBuilder(
-      animation: _pulseController,
+      animation: _breatheController,
       builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withOpacity(0.12),
-                Colors.white.withOpacity(0.08),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: gradientColors[0].withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
+        return Transform.scale(
+          scale: _breatheAnimation.value,
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: gradientColors),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: gradientColors[0].withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 24),
-                  ),
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: gradientColors,
-                    ).createShader(bounds),
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors[0].withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                  spreadRadius: 1,
                 ),
-              ),
-            ],
+                BoxShadow(
+                  color: gradientColors[1].withOpacity(0.2),
+                  blurRadius: 28,
+                  offset: const Offset(0, 6),
+                  spreadRadius: -4,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.2),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 22),
+                    ),
+                    AnimatedBuilder(
+                      animation: _pulseController,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _pulseAnimation.value * 0.05 + 0.95,
+                          child: Text(
+                            value,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -481,31 +553,31 @@ class _AdminDashboardState extends State<AdminDashboard>
       {
         'title': 'User Management',
         'icon': Icons.people_outline,
-        'gradientColors': [const Color(0xFF667eea), const Color(0xFF764ba2)],
+        'gradientColors': [const Color(0xFF0F766E), const Color(0xFF0D9488)],
         'description': 'Manage user accounts',
       },
       {
         'title': 'Leave Approvals',
         'icon': Icons.approval_outlined,
-        'gradientColors': [const Color(0xFF4ECDC4), const Color(0xFF44A08D)],
+        'gradientColors': [const Color(0xFF14B8A6), const Color(0xFF06B6D4)],
         'description': 'Approve/reject leave requests',
       },
       {
         'title': 'Attendance Reports',
         'icon': Icons.analytics_outlined,
-        'gradientColors': [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)],
+        'gradientColors': [const Color(0xFF0891B2), const Color(0xFF0E7490)],
         'description': 'View attendance analytics',
       },
       {
         'title': 'Admin Notifications',
         'icon': Icons.notifications_active_outlined,
-        'gradientColors': [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
+        'gradientColors': [const Color(0xFF0F766E), const Color(0xFF115E59)],
         'description': 'Manage admin notifications',
       },
       {
         'title': 'Holiday Calendar',
         'icon': Icons.calendar_today_outlined,
-        'gradientColors': [const Color(0xFF00F5FF), const Color(0xFF0099FF)],
+        'gradientColors': [const Color(0xFF0D9488), const Color(0xFF14B8A6)],
         'description': 'Manage holidays',
       },
     ];
@@ -515,25 +587,37 @@ class _AdminDashboardState extends State<AdminDashboard>
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 0.9,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.95,
       ),
       itemCount: adminFunctions.length,
       itemBuilder: (context, index) {
         final function = adminFunctions[index];
         return TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
-          duration: Duration(milliseconds: 800 + (index * 200)),
+          duration: Duration(milliseconds: 900 + (index * 150)),
           curve: Curves.elasticOut,
           builder: (context, value, child) {
             return Transform.scale(
               scale: value,
-              child: _buildAdminFunctionCard(
-                title: function['title'] as String,
-                icon: function['icon'] as IconData,
-                gradientColors: function['gradientColors'] as List<Color>,
-                description: function['description'] as String,
+              child: AnimatedBuilder(
+                animation: _floatController,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(
+                      (index.isEven ? 1 : -1) * _floatAnimation.value * 0.2,
+                      _floatAnimation.value * 0.3,
+                    ),
+                    child: _buildAdminFunctionCard(
+                      title: function['title'] as String,
+                      icon: function['icon'] as IconData,
+                      gradientColors: function['gradientColors'] as List<Color>,
+                      description: function['description'] as String,
+                      index: index,
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -547,110 +631,122 @@ class _AdminDashboardState extends State<AdminDashboard>
     required IconData icon,
     required List<Color> gradientColors,
     required String description,
+    required int index,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withOpacity(0.12),
-            Colors.white.withOpacity(0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: gradientColors[0].withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _handleAdminFunctionTap(title),
-          splashColor: gradientColors[0].withOpacity(0.3),
-          highlightColor: gradientColors[1].withOpacity(0.2),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.bounceOut,
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: gradientColors),
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: gradientColors[0].withOpacity(0.4),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Icon(icon, size: 28, color: Colors.white),
-                      ),
-                    );
-                  },
+    return AnimatedBuilder(
+      animation: _breatheController,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _breatheAnimation.value * 0.01 + 0.99,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradientColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors[0].withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                  spreadRadius: 1,
                 ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: gradientColors,
-                    ).createShader(bounds),
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Flexible(
-                  child: Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      height: 1.1,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                BoxShadow(
+                  color: gradientColors[1].withOpacity(0.2),
+                  blurRadius: 28,
+                  offset: const Offset(0, 6),
+                  spreadRadius: -4,
                 ),
               ],
             ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => _handleAdminFunctionTap(title),
+                splashColor: Colors.white.withOpacity(0.2),
+                highlightColor: Colors.white.withOpacity(0.1),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: Duration(milliseconds: 700 + (index * 100)),
+                        curve: Curves.bounceOut,
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: AnimatedBuilder(
+                              animation: _pulseController,
+                              builder: (context, child) {
+                                return Transform.scale(
+                                  scale: _pulseAnimation.value * 0.03 + 0.97,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.2),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(icon, size: 26, color: Colors.white),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Flexible(
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: Text(
+                          description,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            height: 1.1,
+                            letterSpacing: 0.1,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -724,7 +820,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF00F5FF), Color(0xFF0099FF)],
+                    colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -741,6 +837,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                   style: const TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 16,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -748,9 +845,9 @@ class _AdminDashboardState extends State<AdminDashboard>
           ),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(16),
           ),
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: const Color(0xFF374151),
           duration: const Duration(seconds: 3),
           margin: const EdgeInsets.all(16),
         ),
