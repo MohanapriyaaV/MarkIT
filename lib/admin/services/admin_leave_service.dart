@@ -20,6 +20,7 @@ class AdminLeaveService {
   Future<List<Map<String, dynamic>>> fetchPendingLeavesForTeams(List<Map<String, dynamic>> teams) async {
     List<Map<String, dynamic>> pendingLeaves = [];
     List<Future<List<Map<String, dynamic>>>> futures = [];
+    
     for (final team in teams) {
       final List members = team['members'] ?? [];
       for (final memberId in members) {
@@ -35,11 +36,13 @@ class AdminLeaveService {
                     leaveData['leaveId'] = leaveDoc.id;
                     leaveData['employeeId'] = memberId;
                     leaveData['teamId'] = team['id'] ?? team['teamId'];
+                    leaveData['teamName'] = team['name'] ?? team['teamName'] ?? 'Unknown Team';
                     return leaveData;
                   }).toList()),
         );
       }
     }
+    
     final results = await Future.wait(futures);
     pendingLeaves = results.expand((x) => x).toList();
     return pendingLeaves;
@@ -67,10 +70,35 @@ class AdminLeaveService {
         });
   }
 
+  // Reject a leave and record the admin info with remarks
+  Future<void> rejectLeave({
+    required String memberId,
+    required String leaveId,
+    required String adminId,
+    required String adminName,
+    required String adminRole,
+    required String remarks,
+  }) async {
+    await _firestore
+        .collection('leaveapplication')
+        .doc(memberId)
+        .collection('userLeaves')
+        .doc(leaveId)
+        .update({
+          'status': 'Rejected',
+          'rejectedBy': adminId,
+          'rejectedByName': adminName,
+          'rejectedByRole': adminRole,
+          'rejectedAt': FieldValue.serverTimestamp(),
+          'rejectionRemarks': remarks,
+        });
+  }
+
   // Fetch all approved leaves for teams this admin manages
   Future<List<Map<String, dynamic>>> fetchApprovedLeavesForTeams(List<Map<String, dynamic>> teams) async {
     List<Map<String, dynamic>> approvedLeaves = [];
     List<Future<List<Map<String, dynamic>>>> futures = [];
+    
     for (final team in teams) {
       final List members = team['members'] ?? [];
       for (final memberId in members) {
@@ -86,13 +114,41 @@ class AdminLeaveService {
                     leaveData['leaveId'] = leaveDoc.id;
                     leaveData['employeeId'] = memberId;
                     leaveData['teamId'] = team['id'] ?? team['teamId'];
+                    leaveData['teamName'] = team['name'] ?? team['teamName'] ?? 'Unknown Team';
                     return leaveData;
                   }).toList()),
         );
       }
     }
+    
     final results = await Future.wait(futures);
     approvedLeaves = results.expand((x) => x).toList();
     return approvedLeaves;
+  }
+
+  // Fetch employee name
+  Future<String> getEmployeeName(String userId) async {
+    try {
+      final doc = await _firestore
+          .collection('employeeInfo')
+          .doc(userId)
+          .get();
+      return doc.exists ? (doc.data()?['name'] ?? userId) : userId;
+    } catch (e) {
+      return userId;
+    }
+  }
+
+  // Fetch admin name
+  Future<String> getAdminName(String adminId) async {
+    try {
+      final doc = await _firestore
+          .collection('employeeInfo')
+          .doc(adminId)
+          .get();
+      return doc.exists ? (doc.data()?['name'] ?? adminId) : adminId;
+    } catch (e) {
+      return adminId;
+    }
   }
 }
