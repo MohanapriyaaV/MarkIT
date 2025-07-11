@@ -54,10 +54,7 @@ class TeamService {
 
     return snapshot.docs.map((doc) {
       final data = doc.data();
-      return TeamModel.fromMap({
-        ...data,
-        'teamId': doc.id,
-      });
+      return TeamModel.fromMap({...data, 'teamId': doc.id});
     }).toList();
   }
 
@@ -66,10 +63,7 @@ class TeamService {
       final snapshot = await _firestore.collection('teams').get();
       return snapshot.docs.map((doc) {
         final data = doc.data();
-        return TeamModel.fromMap({
-          ...data,
-          'teamId': doc.id,
-        });
+        return TeamModel.fromMap({...data, 'teamId': doc.id});
       }).toList();
     } catch (e) {
       print("🔥 Error fetching all teams: $e");
@@ -81,10 +75,7 @@ class TeamService {
     if (teamId.isEmpty) return null;
     final doc = await _firestore.collection('teams').doc(teamId).get();
     if (doc.exists && doc.data() != null) {
-      return TeamModel.fromMap({
-        ...doc.data()!,
-        'teamId': doc.id,
-      });
+      return TeamModel.fromMap({...doc.data()!, 'teamId': doc.id});
     }
     return null;
   }

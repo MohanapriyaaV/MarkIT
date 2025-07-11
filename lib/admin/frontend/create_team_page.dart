@@ -14,11 +14,13 @@ class CreateTeamPage extends StatefulWidget {
   _CreateTeamPageState createState() => _CreateTeamPageState();
 }
 
-class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStateMixin {
+class _CreateTeamPageState extends State<CreateTeamPage>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _teamNameController = TextEditingController();
   final TextEditingController _noLOPController = TextEditingController();
-  final TextEditingController _emergencyLeaveController = TextEditingController();
+  final TextEditingController _emergencyLeaveController =
+      TextEditingController();
   final TextEditingController _graceTimeController = TextEditingController();
 
   TimeOfDay? _session1Login;
@@ -42,36 +44,33 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
   late Animation<Offset> _slideAnimation;
 
   bool get isEditMode => widget.editTeam != null;
-  bool get isSuperAdmin => _currentUserRole == 'Director' || _currentUserRole == 'CEO';
+  bool get isSuperAdmin =>
+      _currentUserRole == 'Director' || _currentUserRole == 'CEO';
 
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize animations
     _animationController = AnimationController(
       duration: Duration(milliseconds: 1000),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0.0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: Offset(0.0, 0.1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut,
+          ),
+        );
+
     _fetchUserRole();
-    
+
     if (isEditMode) {
       final team = widget.editTeam!;
       _teamNameController.text = team.teamName;
@@ -232,7 +231,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
           _assistantManagerHRId,
           _managerHRId,
         ].whereType<String>().toList();
-        
+
         final memberIds = _selectedMembers
             .where((id) => !adminIds.contains(id))
             .toList();
@@ -246,7 +245,9 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
               : (_teamType == 'Production Team' ? _projectManagerId : null),
           'assistantProjectManagerId': isSuperAdmin
               ? null
-              : (_teamType == 'Production Team' ? _assistantProjectManagerId : null),
+              : (_teamType == 'Production Team'
+                    ? _assistantProjectManagerId
+                    : null),
           'projectLeadId': isSuperAdmin
               ? null
               : (_teamType == 'Production Team' ? _projectLeadId : null),
@@ -278,7 +279,9 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEditMode ? 'Team updated successfully!' : 'Team created successfully!',
+              isEditMode
+                  ? 'Team updated successfully!'
+                  : 'Team created successfully!',
             ),
             backgroundColor: Color(0xFF00BFA6),
           ),
@@ -309,10 +312,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
       builder: (context, child) {
         return SlideTransition(
           position: _slideAnimation,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: child,
-          ),
+          child: FadeTransition(opacity: _fadeAnimation, child: child),
         );
       },
       child: child,
@@ -351,7 +351,12 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
     );
   }
 
-  Widget _buildTimePicker(String label, TimeOfDay? time, Function(TimeOfDay) onPicked, IconData icon) {
+  Widget _buildTimePicker(
+    String label,
+    TimeOfDay? time,
+    Function(TimeOfDay) onPicked,
+    IconData icon,
+  ) {
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -436,9 +441,9 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: color != null 
-                ? [color, color.withOpacity(0.8)]
-                : [Color(0xFF00BFA6), Color(0xFF00A693)],
+              colors: color != null
+                  ? [color, color.withOpacity(0.8)]
+                  : [Color(0xFF00BFA6), Color(0xFF00A693)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -448,10 +453,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (icon != null) ...[
-                icon,
-                SizedBox(width: 8),
-              ],
+              if (icon != null) ...[icon, SizedBox(width: 8)],
               Text(
                 text,
                 style: TextStyle(
@@ -557,30 +559,43 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
                                       value: _teamType,
                                       decoration: InputDecoration(
                                         labelText: 'Team Type',
-                                        prefixIcon: Icon(Icons.group_work, color: Color(0xFF00BFA6)),
+                                        prefixIcon: Icon(
+                                          Icons.group_work,
+                                          color: Color(0xFF00BFA6),
+                                        ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(15),
+                                          borderRadius: BorderRadius.circular(
+                                            15,
+                                          ),
                                           borderSide: BorderSide.none,
                                         ),
                                         filled: true,
                                         fillColor: Colors.white,
                                       ),
-                                      items: ['Production Team', 'General Team'].map((type) {
-                                        return DropdownMenuItem(
-                                          value: type,
-                                          child: Text(type),
-                                        );
-                                      }).toList(),
-                                      onChanged: (val) => setState(() => _teamType = val!),
+                                      items: ['Production Team', 'General Team']
+                                          .map((type) {
+                                            return DropdownMenuItem(
+                                              value: type,
+                                              child: Text(type),
+                                            );
+                                          })
+                                          .toList(),
+                                      onChanged: (val) =>
+                                          setState(() => _teamType = val!),
                                     ),
                                   ),
-                                  
+
                                   // Team Name Field
                                   _buildTextField(
                                     controller: _teamNameController,
                                     label: 'Team Name',
-                                    validator: (value) => value!.isEmpty ? 'Enter team name' : null,
-                                    prefixIcon: Icon(Icons.group, color: Color(0xFF00BFA6)),
+                                    validator: (value) => value!.isEmpty
+                                        ? 'Enter team name'
+                                        : null,
+                                    prefixIcon: Icon(
+                                      Icons.group,
+                                      color: Color(0xFF00BFA6),
+                                    ),
                                   ),
 
                                   // Shift Timings Section
@@ -595,7 +610,7 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
                                       ),
                                     ),
                                   ),
-                                  
+
                                   _buildTimePicker(
                                     'Session 1 Login',
                                     _session1Login,
@@ -625,38 +640,57 @@ class _CreateTeamPageState extends State<CreateTeamPage> with TickerProviderStat
                                   _buildTextField(
                                     controller: _graceTimeController,
                                     label: 'Grace Time (in minutes)',
-                                    validator: (value) => value!.isEmpty ? 'Enter grace time' : null,
+                                    validator: (value) => value!.isEmpty
+                                        ? 'Enter grace time'
+                                        : null,
                                     keyboardType: TextInputType.number,
-                                    prefixIcon: Icon(Icons.timer, color: Color(0xFF00BFA6)),
+                                    prefixIcon: Icon(
+                                      Icons.timer,
+                                      color: Color(0xFF00BFA6),
+                                    ),
                                   ),
-                                  
+
                                   _buildTextField(
                                     controller: _noLOPController,
                                     label: 'No LOP Days',
-                                    validator: (value) => value!.isEmpty ? 'Enter number' : null,
+                                    validator: (value) =>
+                                        value!.isEmpty ? 'Enter number' : null,
                                     keyboardType: TextInputType.number,
-                                    prefixIcon: Icon(Icons.calendar_today, color: Color(0xFF00BFA6)),
+                                    prefixIcon: Icon(
+                                      Icons.calendar_today,
+                                      color: Color(0xFF00BFA6),
+                                    ),
                                   ),
-                                  
+
                                   _buildTextField(
                                     controller: _emergencyLeaveController,
                                     label: 'Emergency Leaves',
-                                    validator: (value) => value!.isEmpty ? 'Enter number' : null,
+                                    validator: (value) =>
+                                        value!.isEmpty ? 'Enter number' : null,
                                     keyboardType: TextInputType.number,
-                                    prefixIcon: Icon(Icons.emergency, color: Color(0xFF00BFA6)),
+                                    prefixIcon: Icon(
+                                      Icons.emergency,
+                                      color: Color(0xFF00BFA6),
+                                    ),
                                   ),
 
                                   // Select Members Button
                                   _buildGradientButton(
-                                    text: 'Select Members (${_selectedMembers.length})',
+                                    text:
+                                        'Select Members (${_selectedMembers.length})',
                                     onPressed: _selectMembers,
                                     color: Color(0xFF3498DB),
-                                    icon: Icon(Icons.people, color: Colors.white),
+                                    icon: Icon(
+                                      Icons.people,
+                                      color: Colors.white,
+                                    ),
                                   ),
 
                                   // Submit Button
                                   _buildGradientButton(
-                                    text: isEditMode ? 'Update Team' : 'Create Team',
+                                    text: isEditMode
+                                        ? 'Update Team'
+                                        : 'Create Team',
                                     onPressed: _submit,
                                     icon: Icon(
                                       isEditMode ? Icons.update : Icons.add,
