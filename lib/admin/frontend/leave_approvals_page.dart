@@ -98,7 +98,8 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     return doc.exists ? (doc['teamName'] ?? teamId) : teamId;
   }
 
-  void _showLeaveDetailsPage(Map<String, dynamic> leave) {
+  // Show leave details for pending leaves
+  void _showPendingLeaveDetailsPage(Map<String, dynamic> leave) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -109,7 +110,25 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           onStatusUpdate: (status) async {
             await _updateLeaveStatus(leave, status);
             Navigator.of(context).pop();
+            // Refresh both pending and history lists after status update
+            _fetchPendingLeaves();
+            _fetchLeaveHistory();
           },
+        ),
+      ),
+    );
+  }
+
+  // Show leave details for history leaves (read-only)
+  void _showHistoryLeaveDetailsPage(Map<String, dynamic> leave) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LeaveDetailsPage(
+          leave: leave,
+          getEmployeeName: _getEmployeeName,
+          getTeamName: _getTeamName,
+          onStatusUpdate: null, // No actions for history leaves
         ),
       ),
     );
@@ -146,11 +165,19 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           'approvedAt': FieldValue.serverTimestamp(),
         });
       } else if (status == 'rejected') {
+        // Get rejection remarks before proceeding
+        String? rejectionRemarks = await _getRejectionRemarks();
+        if (rejectionRemarks == null) {
+          // User cancelled the rejection, don't proceed
+          return;
+        }
+
         updateData.addAll({
           'rejectedBy': user.uid,
           'rejectedByName': adminName,
           'rejectedByRole': adminRole,
           'rejectedAt': FieldValue.serverTimestamp(),
+          'rejectionRemarks': rejectionRemarks,
         });
       }
 
@@ -166,6 +193,49 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     } catch (e) {
       print('Error updating leave status: $e');
     }
+  }
+
+  Future<String?> _getRejectionRemarks() async {
+    final TextEditingController remarksController = TextEditingController();
+    String? result;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Rejection Reason'),
+          content: TextField(
+            controller: remarksController,
+            decoration: const InputDecoration(
+              hintText: 'Please enter the reason for rejecting this leave request',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                result = remarksController.text;
+                Navigator.of(context).pop();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result;
   }
 
   Widget _leaveTile(Map<String, dynamic> leave) {
@@ -194,7 +264,7 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
               ],
             ),
             trailing: ElevatedButton(
-              onPressed: () => _showLeaveDetailsPage(leave),
+              onPressed: () => _showPendingLeaveDetailsPage(leave),
               child: const Text('View Details'),
             ),
           ),
@@ -203,51 +273,153 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Leave Approvals')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-          ? Center(child: Text('Error:\n$_errorMessage'))
-          : Column(
+  // Display history leave tile
+  Widget _historyLeaveTile(Map<String, dynamic> leave) {
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        _getEmployeeName(leave['employeeId'] ?? ''),
+        _getTeamName(leave['teamId'] ?? ''),
+      ]),
+      builder: (context, snapshot) {
+        final employeeName = snapshot.hasData
+            ? snapshot.data![0] as String
+            : leave['employeeId'];
+        final teamName = snapshot.hasData
+            ? snapshot.data![1] as String
+            : leave['teamId'];
+        final leaveType = leave['reason'] ?? 'N/A';
+        final status = leave['status']?.toString().toUpperCase() ?? 'UNKNOWN';
+
+        // Set color based on status
+        Color statusColor = Colors.grey;
+        if (status == 'APPROVED') {
+          statusColor = Colors.green;
+        } else if (status == 'REJECTED') {
+          statusColor = Colors.red;
+        }
+
+        return Card(
+          margin: const EdgeInsets.all(12),
+          child: ListTile(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header section
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  color: Colors.blue.shade50,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Pending Leave Approvals',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                Text('Employee: $employeeName'),
+                Text('Team: $teamName'),
+                Text('Leave Type: $leaveType'),
+                Row(
+                  children: [
+                    Text('Status: '),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      TextButton(
-                        onPressed: _fetchPendingLeaves,
-                        child: const Text('Refresh'),
+                      child: Text(
+                        status,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                if (status == 'REJECTED' && leave['rejectionRemarks'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Rejection Reason: ${leave['rejectionRemarks']}',
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _pendingLeaves.isEmpty
-                      ? const Center(child: Text('No pending leave approvals'))
-                      : ListView.builder(
-                          itemCount: _pendingLeaves.length,
-                          itemBuilder: (context, index) {
-                            final leave = _pendingLeaves[index];
-                            return _leaveTile(leave);
-                          },
-                        ),
-                ),
               ],
             ),
+            trailing: ElevatedButton(
+              onPressed: () => _showHistoryLeaveDetailsPage(leave),
+              child: const Text('View Details'),
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _fetchLeaveHistory() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final teams = await _adminLeaveService.fetchTeamsForAdmin(user.uid);
+      final teamIds = teams
+          .map((t) => t['id'] ?? t['teamId'])
+          .whereType<String>()
+          .toSet();
+
+      // 获取已处理的假期申请（已批准或已拒绝）
+      final processedLeaves = await _adminLeaveService.fetchProcessedLeavesForTeams(teams);
+
+      // 过滤掉不在团队中的假期
+      final filteredLeaves = processedLeaves
+          .where((leave) => teamIds.contains(leave['teamId']))
+          .toList();
+
+      setState(() {
+        _historyLeaves = filteredLeaves;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // No TabBar, just show the pending approvals content directly
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _errorMessage != null
+        ? Center(child: Text('Error:\n$_errorMessage'))
+        : Column(
+            children: [
+              // Header section
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                color: Colors.blue.shade50,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Pending Leave Approvals',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _fetchPendingLeaves,
+                      child: const Text('Refresh'),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _pendingLeaves.isEmpty
+                    ? const Center(child: Text('No pending leave approvals'))
+                    : ListView.builder(
+                        itemCount: _pendingLeaves.length,
+                        itemBuilder: (context, index) {
+                          final leave = _pendingLeaves[index];
+                          return _leaveTile(leave);
+                        },
+                      ),
+              ),
+            ],
+          );
   }
 }
 
@@ -255,14 +427,14 @@ class LeaveDetailsPage extends StatefulWidget {
   final Map<String, dynamic> leave;
   final Future<String> Function(String) getEmployeeName;
   final Future<String> Function(String) getTeamName;
-  final Future<void> Function(String status) onStatusUpdate;
+  final Future<void> Function(String status)? onStatusUpdate;
 
   const LeaveDetailsPage({
     Key? key,
     required this.leave,
     required this.getEmployeeName,
     required this.getTeamName,
-    required this.onStatusUpdate,
+    this.onStatusUpdate,
   }) : super(key: key);
 
   @override
@@ -296,50 +468,70 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
       teamName = 'Not found ($teamId)';
     }
     String formatDate(dynamic ts) {
-      if (ts == null) return '';
+      if (ts == null) return 'N/A';
+      if (ts is String && ts.isEmpty) return 'N/A';
       if (ts is String) return ts;
       if (ts is DateTime) return ts.toString().split(' ')[0];
       if (ts is Timestamp) return ts.toDate().toString().split(' ')[0];
       return ts.toString();
     }
 
-    String leaveEndDate = '';
+    // Parse number of days
+    int numberOfDays = 1;
+    if (leave['numberOfDays'] != null) {
+      numberOfDays = int.tryParse(leave['numberOfDays'].toString()) ?? 1;
+    }
+
+    // Calculate leave end date
+    String leaveEndDate = 'N/A';
+    DateTime? endDate;
     if (leave['endDateTime'] != null) {
-      DateTime endDate;
       if (leave['endDateTime'] is Timestamp) {
         endDate = (leave['endDateTime'] as Timestamp).toDate();
       } else if (leave['endDateTime'] is DateTime) {
         endDate = leave['endDateTime'];
       } else {
-        endDate =
-            DateTime.tryParse(leave['endDateTime'].toString()) ??
-            DateTime.now();
+        endDate = DateTime.tryParse(leave['endDateTime'].toString());
       }
-      int numberOfDays = 1;
-      if (leave['numberOfDays'] != null) {
-        numberOfDays = int.tryParse(leave['numberOfDays'].toString()) ?? 1;
+
+      if (endDate != null) {
+        if (numberOfDays > 1) {
+          endDate = endDate.add(Duration(days: numberOfDays - 1));
+        }
+        // For single day leave, just use the end date as is
+        leaveEndDate = formatDate(endDate);
       }
-      if (numberOfDays > 1) {
-        endDate = endDate.add(Duration(days: numberOfDays - 1));
-      } else if (numberOfDays == 1) {
-        endDate = endDate.add(const Duration(days: 1));
-      }
-      leaveEndDate = formatDate(endDate);
     }
+
+    // Calculate start date
+    String leaveStartDate = 'N/A';
+    if (leave['startDate'] != null) {
+      leaveStartDate = formatDate(leave['startDate']);
+    }
+
+    // Key modification: For single-day leaves, always use end date as start date
+    if (numberOfDays == 1 && leaveEndDate != 'N/A') {
+      leaveStartDate = leaveEndDate;
+    }
+
     return {
       'employeeName': employeeName,
       'teamName': teamName,
       'appliedAt': formatDate(leave['appliedAt']),
-      'startDate': formatDate(leave['startDate']),
+      'startDate': leaveStartDate,
       'endDate': leaveEndDate,
       'reason': leave['reason'] ?? '',
+      'rejectionRemarks': leave['rejectionRemarks'] ?? '',
     };
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Leave Details')),
+      appBar: AppBar(
+        title: const Text('Leave Details'),
+        // Don't include tab bar here
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _detailsFuture,
         builder: (context, snapshot) {
@@ -416,6 +608,30 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
                 _buildDetailRow('Number of Days', '$numDays day(s)'),
                 _buildDetailRow('Leave Duration', '$leaveDuration day(s)'),
                 const SizedBox(height: 24),
+                if (widget.leave['status'] == 'rejected' && widget.leave['rejectionRemarks'] != null && widget.leave['rejectionRemarks'].toString().isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Rejection Remarks',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text(
+                          widget.leave['rejectionRemarks'] ?? '',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 // Application Details Section
                 const Text(
                   'Application Details',
@@ -442,22 +658,52 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => widget.onStatusUpdate('approved'),
-                      child: const Text('Approve'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => widget.onStatusUpdate('rejected'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                // Display rejection reason (if exists and status is rejected)
+                if (widget.leave['status'] == 'rejected' && 
+                    widget.leave['rejectionRemarks'] != null && 
+                    widget.leave['rejectionRemarks'].toString().isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Rejection Reason',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      child: const Text('Reject'),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Text(
+                          widget.leave['rejectionRemarks'] ?? '',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                // Display action buttons only if onStatusUpdate is provided and leave is pending
+                if (widget.onStatusUpdate != null && 
+                    (widget.leave['status'] == null || widget.leave['status'] == 'pending' || widget.leave['status'].toString().toLowerCase() == 'pending'))
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => widget.onStatusUpdate?.call('approved'),
+                        child: const Text('Approve'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => widget.onStatusUpdate?.call('rejected'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                        child: const Text('Reject'),
+                      ),
+                    ],
+                  ),
               ],
             ),
           );

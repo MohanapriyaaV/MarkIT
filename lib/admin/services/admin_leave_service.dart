@@ -313,6 +313,38 @@ class AdminLeaveService {
     return approvedLeaves;
   }
 
+  // Fetch processed leaves (approved or rejected)
+  Future<List<Map<String, dynamic>>> fetchProcessedLeavesForTeams(List<Map<String, dynamic>> teams) async {
+    List<Map<String, dynamic>> processedLeaves = [];
+    List<Future<List<Map<String, dynamic>>>> futures = [];
+
+    for (final team in teams) {
+      final List members = team['members'] ?? [];
+      for (final memberId in members) {
+        futures.add(
+          _firestore
+              .collection('leaveapplication')
+              .doc(memberId)
+              .collection('userLeaves')
+              .where('status', whereIn: ['approved', 'rejected'])
+              .get()
+              .then((leavesSnapshot) => leavesSnapshot.docs.map((leaveDoc) {
+                    final leaveData = leaveDoc.data();
+                    leaveData['leaveId'] = leaveDoc.id;
+                    leaveData['employeeId'] = memberId;
+                    leaveData['teamId'] = team['id'] ?? team['teamId'];
+                    leaveData['teamName'] = team['name'] ?? team['teamName'] ?? 'Unknown Team';
+                    return leaveData;
+                  }).toList()),
+        );
+      }
+    }
+
+    final results = await Future.wait(futures);
+    processedLeaves = results.expand((x) => x).toList();
+    return processedLeaves;
+  }
+
   // Fetch employee name
   Future<String> getEmployeeName(String userId) async {
     try {
