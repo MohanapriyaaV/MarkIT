@@ -13,6 +13,7 @@ class LeaveApprovalsPage extends StatefulWidget {
 class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
   final AdminLeaveService _adminLeaveService = AdminLeaveService();
   List<Map<String, dynamic>> _pendingLeaves = [];
+  List<Map<String, dynamic>> _historyLeaves = []; // Added for parent tab functionality
   bool _loading = true;
   String? _errorMessage;
 
