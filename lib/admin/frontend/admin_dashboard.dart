@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'attendance_report_page.dart';
 import 'team_list_page.dart';
-import 'leave_approvals_page.dart';
-import 'approved_leaves_page.dart';
+import 'parent_leave_approval.dart';
 
 class AdminDashboard extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -779,23 +778,13 @@ class _AdminDashboardState extends State<AdminDashboard>
       Navigator.push(
         context,
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LeaveApprovalsPage(),
+          pageBuilder: (context, animation, secondaryAnimation) => const TabbedLeaveApprovalsPage(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
         ),
       );
-    } else if (functionTitle == 'Approved Leaves') {
-      Navigator.push(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const ApprovedLeavesPage(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return ScaleTransition(scale: animation, child: child);
-          },
-        ),
-      );
-    } else if (functionTitle == 'Attendance Reports') {
+    }  else if (functionTitle == 'Attendance Reports') {
       Navigator.push(
         context,
         PageRouteBuilder(
