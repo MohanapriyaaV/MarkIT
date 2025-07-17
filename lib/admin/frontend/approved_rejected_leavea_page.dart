@@ -236,20 +236,7 @@ class _ApprovedRejectedLeavesPageState extends State<ApprovedRejectedLeavesPage>
           ? Center(child: Text('Error:\n$_errorMessage'))
           : Column(
               children: [
-                // Header section with only refresh button
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  color: Colors.green.shade50,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: _fetchHistoryLeaves,
-                        child: const Text('Refresh'),
-                      ),
-                    ],
-                  ),
-                ),
+                // Removed refresh button as data updates in real-time from Firestore
                 Expanded(
                   child: _historyLeaves.isEmpty
                       ? const Center(child: Text('No leave history found'))
