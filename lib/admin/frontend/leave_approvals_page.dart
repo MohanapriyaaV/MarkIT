@@ -13,13 +13,19 @@ class LeaveApprovalsPage extends StatefulWidget {
 class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
   final AdminLeaveService _adminLeaveService = AdminLeaveService();
   List<Map<String, dynamic>> _pendingLeaves = [];
-  List<Map<String, dynamic>> _historyLeaves = []; // Added for parent tab functionality
   bool _loading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _fetchPendingLeaves();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when dependencies change (when tab is switched)
     _fetchPendingLeaves();
   }
 
@@ -111,9 +117,8 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           onStatusUpdate: (status) async {
             await _updateLeaveStatus(leave, status);
             Navigator.of(context).pop();
-            // Refresh both pending and history lists after status update
+            // Refresh pending list after status update
             _fetchPendingLeaves();
-            _fetchLeaveHistory();
           },
         ),
       ),
@@ -121,19 +126,7 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
   }
 
   // Show leave details for history leaves (read-only)
-  void _showHistoryLeaveDetailsPage(Map<String, dynamic> leave) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => LeaveDetailsPage(
-          leave: leave,
-          getEmployeeName: _getEmployeeName,
-          getTeamName: _getTeamName,
-          onStatusUpdate: null, // No actions for history leaves
-        ),
-      ),
-    );
-  }
+  // History view is handled by a separate parent page
 
   Future<void> _updateLeaveStatus(
     Map<String, dynamic> leave,
@@ -152,9 +145,59 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
       final adminName = adminDoc.exists ? (adminDoc.data()?['name'] as String? ?? '') : '';
       final adminRole = adminDoc.exists ? (adminDoc.data()?['role'] as String? ?? '') : '';
 
+      // Process dates to preserve them when moving to history
+      String? startDate;
+      String? endDate;
+
+      // Extract dates using same logic as in _getLeaveDetails
+      String formatDate(dynamic ts) {
+        if (ts == null) return 'N/A';
+        if (ts is String && ts.isEmpty) return 'N/A';
+        if (ts is String) return ts;
+        if (ts is DateTime) return ts.toString().split(' ')[0];
+        if (ts is Timestamp) return ts.toDate().toString().split(' ')[0];
+        return ts.toString();
+      }
+
+      // Calculate end date
+      DateTime? dateTime;
+      int numberOfDays = int.tryParse(leave['numberOfDays']?.toString() ?? '1') ?? 1;
+
+      if (leave['endDateTime'] != null) {
+        if (leave['endDateTime'] is Timestamp) {
+          dateTime = (leave['endDateTime'] as Timestamp).toDate();
+        } else if (leave['endDateTime'] is DateTime) {
+          dateTime = leave['endDateTime'];
+        } else {
+          dateTime = DateTime.tryParse(leave['endDateTime'].toString());
+        }
+
+        if (dateTime != null) {
+          DateTime originalDateTime = dateTime; // Store original date
+
+          // Calculate end date by adding days for multi-day leaves
+          if (numberOfDays > 1) {
+            dateTime = dateTime.add(Duration(days: numberOfDays - 1));
+          }
+          endDate = formatDate(dateTime);
+
+          // For single day leaves, start date is the same as end date
+          if (numberOfDays == 1) {
+            startDate = endDate;
+          } else if (leave['startDate'] != null) {
+            startDate = formatDate(leave['startDate']);
+          } else {
+            // Use the original date as the start date for multi-day leaves
+            startDate = formatDate(originalDateTime);
+          }
+        }
+      }
+
       // Update with more details
       final Map<String, dynamic> updateData = {
         'status': status,
+        'startDate': startDate,
+        'endDate': endDate,
       };
 
       // Add appropriate fields based on approval status
@@ -275,152 +318,48 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
   }
 
   // Display history leave tile
-  Widget _historyLeaveTile(Map<String, dynamic> leave) {
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait([
-        _getEmployeeName(leave['employeeId'] ?? ''),
-        _getTeamName(leave['teamId'] ?? ''),
-      ]),
-      builder: (context, snapshot) {
-        final employeeName = snapshot.hasData
-            ? snapshot.data![0] as String
-            : leave['employeeId'];
-        final teamName = snapshot.hasData
-            ? snapshot.data![1] as String
-            : leave['teamId'];
-        final leaveType = leave['reason'] ?? 'N/A';
-        final status = leave['status']?.toString().toUpperCase() ?? 'UNKNOWN';
+  // History view is handled by a separate parent page
 
-        // Set color based on status
-        Color statusColor = Colors.grey;
-        if (status == 'APPROVED') {
-          statusColor = Colors.green;
-        } else if (status == 'REJECTED') {
-          statusColor = Colors.red;
-        }
-
-        return Card(
-          margin: const EdgeInsets.all(12),
-          child: ListTile(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Employee: $employeeName'),
-                Text('Team: $teamName'),
-                Text('Leave Type: $leaveType'),
-                Row(
-                  children: [
-                    Text('Status: '),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        status,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                if (status == 'REJECTED' && leave['rejectionRemarks'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      'Rejection Reason: ${leave['rejectionRemarks']}',
-                      style: TextStyle(color: Colors.red.shade700),
-                    ),
-                  ),
-              ],
-            ),
-            trailing: ElevatedButton(
-              onPressed: () => _showHistoryLeaveDetailsPage(leave),
-              child: const Text('View Details'),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _fetchLeaveHistory() async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    try {
-      final teams = await _adminLeaveService.fetchTeamsForAdmin(user.uid);
-      final teamIds = teams
-          .map((t) => t['id'] ?? t['teamId'])
-          .whereType<String>()
-          .toSet();
-
-      // 获取已处理的假期申请（已批准或已拒绝）
-      final processedLeaves = await _adminLeaveService.fetchProcessedLeavesForTeams(teams);
-
-      // 过滤掉不在团队中的假期
-      final filteredLeaves = processedLeaves
-          .where((leave) => teamIds.contains(leave['teamId']))
-          .toList();
-
-      setState(() {
-        _historyLeaves = filteredLeaves;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _loading = false;
-      });
-    }
-  }
+  // History view is handled by a separate parent page
 
   @override
   Widget build(BuildContext context) {
-    // No TabBar, just show the pending approvals content directly
-    return _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _errorMessage != null
-        ? Center(child: Text('Error:\n$_errorMessage'))
-        : Column(
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorMessage != null) {
+      return Center(child: Text('Error:\n$_errorMessage'));
+    }
+
+    return Column(
+      children: [
+        // Header section with only refresh button
+        Container(
+          padding: const EdgeInsets.all(8.0),
+          color: Colors.blue.shade50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Header section
-              Container(
-                padding: const EdgeInsets.all(8.0),
-                color: Colors.blue.shade50,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Pending Leave Approvals',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _fetchPendingLeaves,
-                      child: const Text('Refresh'),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _pendingLeaves.isEmpty
-                    ? const Center(child: Text('No pending leave approvals'))
-                    : ListView.builder(
-                        itemCount: _pendingLeaves.length,
-                        itemBuilder: (context, index) {
-                          final leave = _pendingLeaves[index];
-                          return _leaveTile(leave);
-                        },
-                      ),
+              TextButton(
+                onPressed: _fetchPendingLeaves,
+                child: const Text('Refresh'),
               ),
             ],
-          );
+          ),
+        ),
+        Expanded(
+          child: _pendingLeaves.isEmpty
+              ? const Center(child: Text('No pending leave approvals'))
+              : ListView.builder(
+                  itemCount: _pendingLeaves.length,
+                  itemBuilder: (context, index) {
+                    final leave = _pendingLeaves[index];
+                    return _leaveTile(leave);
+                  },
+                ),
+        ),
+      ],
+    );
   }
 }
 
@@ -486,7 +425,13 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
     // Calculate leave end date
     String leaveEndDate = 'N/A';
     DateTime? endDate;
-    if (leave['endDateTime'] != null) {
+
+    // First check if endDate field exists (used in history view)
+    if (leave['endDate'] != null) {
+      leaveEndDate = formatDate(leave['endDate']);
+    }
+    // Otherwise calculate from endDateTime
+    else if (leave['endDateTime'] != null) {
       if (leave['endDateTime'] is Timestamp) {
         endDate = (leave['endDateTime'] as Timestamp).toDate();
       } else if (leave['endDateTime'] is DateTime) {
@@ -506,12 +451,12 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
 
     // Calculate start date
     String leaveStartDate = 'N/A';
+    // First check if startDate field exists (used in history view)
     if (leave['startDate'] != null) {
       leaveStartDate = formatDate(leave['startDate']);
-    }
-
-    // Key modification: For single-day leaves, always use end date as start date
-    if (numberOfDays == 1 && leaveEndDate != 'N/A') {
+    } 
+    // If not available but we have endDate for single day leave
+    else if (numberOfDays == 1 && leaveEndDate != 'N/A') {
       leaveStartDate = leaveEndDate;
     }
 

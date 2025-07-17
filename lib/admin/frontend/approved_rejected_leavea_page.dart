@@ -20,6 +20,13 @@ class _ApprovedRejectedLeavesPageState extends State<ApprovedRejectedLeavesPage>
     _fetchHistoryLeaves();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when dependencies change (when tab is switched)
+    _fetchHistoryLeaves();
+  }
+
   Future<void> _fetchHistoryLeaves() async {
     setState(() {
       _loading = true;
@@ -221,30 +228,21 @@ class _ApprovedRejectedLeavesPageState extends State<ApprovedRejectedLeavesPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Approved/Rejected Leaves'),
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
-      ),
+      // No AppBar title needed as main heading already exists in parent TabBar
+      appBar: null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
           ? Center(child: Text('Error:\n$_errorMessage'))
           : Column(
               children: [
+                // Header section with only refresh button
                 Container(
                   padding: const EdgeInsets.all(8.0),
                   color: Colors.green.shade50,
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      const Text(
-                        'History of Approved/Rejected Leaves',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                       TextButton(
                         onPressed: _fetchHistoryLeaves,
                         child: const Text('Refresh'),
@@ -343,11 +341,7 @@ class HistoryLeaveDetailsPage extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildDetailRow(
                           '${status == 'REJECTED' ? 'Rejected' : 'Approved'} By:',
-                          adminName,
-                        ),
-                        _buildDetailRow(
-                          '${status == 'REJECTED' ? 'Rejected' : 'Approved'} By Role:',
-                          adminRole,
+                          '$adminName (${adminRole})',
                         ),
                         if (leave['rejectionRemarks'] != null && status == 'REJECTED')
                           _buildDetailRow('Rejection Reason:', leave['rejectionRemarks']),
