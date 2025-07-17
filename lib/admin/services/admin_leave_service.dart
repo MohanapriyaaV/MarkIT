@@ -326,7 +326,7 @@ class AdminLeaveService {
               .collection('leaveapplication')
               .doc(memberId)
               .collection('userLeaves')
-              .where('status', whereIn: ['approved', 'rejected'])
+              .where('status', whereIn: ['approved', 'rejected', 'Approved', 'Rejected'])
               .get()
               .then((leavesSnapshot) => leavesSnapshot.docs.map((leaveDoc) {
                     final leaveData = leaveDoc.data();

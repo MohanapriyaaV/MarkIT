@@ -33,6 +33,30 @@ class _TabbedLeaveApprovalsPageState extends State<TabbedLeaveApprovalsPage>
         title: const Text('Leave Approvals'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          // Common refresh button for both tabs
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () {
+              // Get the current tab index
+              final currentTab = _tabController.index;
+
+              // We need to rebuild the entire tabbed view to refresh data
+              setState(() {
+                // This will trigger a rebuild of the tab views
+              });
+
+              // Show a snackbar to indicate refresh
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Refreshing ${currentTab == 0 ? 'pending approvals' : 'history'}...'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
