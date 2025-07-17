@@ -14,8 +14,8 @@ class AttendanceReportService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  static const String _senderEmail = 'mohanapriya7114@gmail.com';
-  static const String _senderPassword = 'nojkjrqhocqqoimk';
+  static const String _senderEmail = 'vistaesglobal@gmail.com';
+  static const String _senderPassword = 'vtoqyklrxhewjfha';
   static const String _senderName = 'MarkIT System';
 
   Future<CsvReportData> generateCsvData(DateTime selectedMonth) async {
