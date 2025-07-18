@@ -31,7 +31,7 @@ class _TabbedLeaveApprovalsPageState extends State<TabbedLeaveApprovalsPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leave Approvals'),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: const Color(0xFF1DD1A1),
         foregroundColor: Colors.white,
         actions: [
           // Removed refresh button as data updates in real-time from Firestore
@@ -53,12 +53,24 @@ class _TabbedLeaveApprovalsPageState extends State<TabbedLeaveApprovalsPage>
           unselectedLabelColor: Colors.white70,
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          LeaveApprovalsPage(),
-          ApprovedRejectedLeavesPage(),
-        ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1DD1A1),
+              Color(0xFF00D2D3),
+            ],
+          ),
+        ),
+        child: TabBarView(
+          controller: _tabController,
+          children: const [
+            LeaveApprovalsPage(),
+            ApprovedRejectedLeavesPage(),
+          ],
+        ),
       ),
     );
   }

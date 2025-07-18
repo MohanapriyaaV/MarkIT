@@ -10,22 +10,63 @@ class LeaveApprovalsPage extends StatefulWidget {
   State<LeaveApprovalsPage> createState() => _LeaveApprovalsPageState();
 }
 
-class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
+class _LeaveApprovalsPageState extends State<LeaveApprovalsPage>
+    with TickerProviderStateMixin {
   final AdminLeaveService _adminLeaveService = AdminLeaveService();
   List<Map<String, dynamic>> _pendingLeaves = [];
   bool _loading = true;
   String? _errorMessage;
+  
+  late AnimationController _slideController;
+  late AnimationController _fadeController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
     _fetchPendingLeaves();
+  }
+
+  void _initializeAnimations() {
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _fadeController.dispose();
+    super.dispose();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh data when dependencies change (when tab is switched)
     _fetchPendingLeaves();
   }
 
@@ -34,8 +75,10 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
       _loading = true;
       _errorMessage = null;
     });
+    
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    
     try {
       final teams = await _adminLeaveService.fetchTeamsForAdmin(user.uid);
       final teamIds = teams
@@ -43,14 +86,19 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           .whereType<String>()
           .toSet();
       final leaves = await _adminLeaveService.fetchPendingLeavesForTeams(teams);
-      // Extra filtering: only show leaves with a matching teamId
+      
       final filteredLeaves = leaves
           .where((leave) => teamIds.contains(leave['teamId']))
           .toList();
+      
       setState(() {
         _pendingLeaves = filteredLeaves;
         _loading = false;
       });
+      
+      // Start animations when data is loaded
+      _fadeController.forward();
+      _slideController.forward();
     } catch (e) {
       setState(() {
         _errorMessage = e.toString();
@@ -63,7 +111,6 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Get admin name and role for proper recording
     try {
       final adminDoc = await FirebaseFirestore.instance
           .collection('employeeInfo')
@@ -81,10 +128,8 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
         adminRole: adminRole,
       );
 
-      // Refresh pending leaves
       _fetchPendingLeaves();
     } catch (e) {
-      // Handle error
       print('Error approving leave: $e');
     }
   }
@@ -105,28 +150,35 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     return doc.exists ? (doc['teamName'] ?? teamId) : teamId;
   }
 
-  // Show leave details for pending leaves
   void _showPendingLeaveDetailsPage(Map<String, dynamic> leave) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LeaveDetailsPage(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => LeaveDetailsPage(
           leave: leave,
           getEmployeeName: _getEmployeeName,
           getTeamName: _getTeamName,
           onStatusUpdate: (status) async {
             await _updateLeaveStatus(leave, status);
             Navigator.of(context).pop();
-            // Refresh pending list after status update
             _fetchPendingLeaves();
           },
         ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOut,
+            )),
+            child: child,
+          );
+        },
       ),
     );
   }
-
-  // Show leave details for history leaves (read-only)
-  // History view is handled by a separate parent page
 
   Future<void> _updateLeaveStatus(
     Map<String, dynamic> leave,
@@ -136,7 +188,6 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     if (user == null) return;
 
     try {
-      // Get admin details to properly record who approved/rejected
       final adminDoc = await FirebaseFirestore.instance
           .collection('employeeInfo')
           .doc(user.uid)
@@ -145,11 +196,9 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
       final adminName = adminDoc.exists ? (adminDoc.data()?['name'] as String? ?? '') : '';
       final adminRole = adminDoc.exists ? (adminDoc.data()?['role'] as String? ?? '') : '';
 
-      // Process dates to preserve them when moving to history
       String? startDate;
       String? endDate;
 
-      // Extract dates using same logic as in _getLeaveDetails
       String formatDate(dynamic ts) {
         if (ts == null) return 'N/A';
         if (ts is String && ts.isEmpty) return 'N/A';
@@ -159,7 +208,6 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
         return ts.toString();
       }
 
-      // Calculate end date
       DateTime? dateTime;
       int numberOfDays = int.tryParse(leave['numberOfDays']?.toString() ?? '1') ?? 1;
 
@@ -173,34 +221,29 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
         }
 
         if (dateTime != null) {
-          DateTime originalDateTime = dateTime; // Store original date
+          DateTime originalDateTime = dateTime;
 
-          // Calculate end date by adding days for multi-day leaves
           if (numberOfDays > 1) {
             dateTime = dateTime.add(Duration(days: numberOfDays - 1));
           }
           endDate = formatDate(dateTime);
 
-          // For single day leaves, start date is the same as end date
           if (numberOfDays == 1) {
             startDate = endDate;
           } else if (leave['startDate'] != null) {
             startDate = formatDate(leave['startDate']);
           } else {
-            // Use the original date as the start date for multi-day leaves
             startDate = formatDate(originalDateTime);
           }
         }
       }
 
-      // Update with more details
       final Map<String, dynamic> updateData = {
         'status': status,
         'startDate': startDate,
         'endDate': endDate,
       };
 
-      // Add appropriate fields based on approval status
       if (status == 'approved') {
         updateData.addAll({
           'approvedBy': user.uid,
@@ -209,10 +252,8 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           'approvedAt': FieldValue.serverTimestamp(),
         });
       } else if (status == 'rejected') {
-        // Get rejection remarks before proceeding
         String? rejectionRemarks = await _getRejectionRemarks();
         if (rejectionRemarks == null) {
-          // User cancelled the rejection, don't proceed
           return;
         }
 
@@ -232,7 +273,6 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
           .doc(leave['leaveId'])
           .update(updateData);
 
-      // Refresh pending leaves
       _fetchPendingLeaves();
     } catch (e) {
       print('Error updating leave status: $e');
@@ -248,14 +288,39 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Rejection Reason'),
-          content: TextField(
-            controller: remarksController,
-            decoration: const InputDecoration(
-              hintText: 'Please enter the reason for rejecting this leave request',
-              border: OutlineInputBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Rejection Reason',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
             ),
-            maxLines: 3,
+          ),
+          content: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red.shade50, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: remarksController,
+              decoration: const InputDecoration(
+                hintText: 'Please enter the reason for rejecting this leave request',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                  borderSide: BorderSide(color: Colors.red, width: 2),
+                ),
+              ),
+              maxLines: 3,
+            ),
           ),
           actions: [
             TextButton(
@@ -264,15 +329,32 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
               },
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                result = remarksController.text;
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.red, Colors.redAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('Submit'),
+              child: ElevatedButton(
+                onPressed: () {
+                  result = remarksController.text;
+                  Navigator.of(context).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Submit',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
             ),
           ],
         );
@@ -282,34 +364,226 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     return result;
   }
 
-  Widget _leaveTile(Map<String, dynamic> leave) {
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait([
-        _getEmployeeName(leave['employeeId'] ?? ''),
-        _getTeamName(leave['teamId'] ?? ''),
-      ]),
-      builder: (context, snapshot) {
-        final employeeName = snapshot.hasData
-            ? snapshot.data![0] as String
-            : leave['employeeId'];
-        final teamName = snapshot.hasData
-            ? snapshot.data![1] as String
-            : leave['teamId'];
-        final leaveType = leave['reason'] ?? 'N/A';
-        return Card(
-          margin: const EdgeInsets.all(12),
-          child: ListTile(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Employee: $employeeName'),
-                Text('Team: $teamName'),
-                Text('Leave Type: $leaveType'),
-              ],
-            ),
-            trailing: ElevatedButton(
-              onPressed: () => _showPendingLeaveDetailsPage(leave),
-              child: const Text('View Details'),
+  Widget _leaveTile(Map<String, dynamic> leave, int index) {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Container(
+              margin: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                top: index == 0 ? 16 : 0,
+              ),
+              child: TweenAnimationBuilder(
+                duration: Duration(milliseconds: 300 + (index * 100)),
+                tween: Tween<double>(begin: 0, end: 1),
+                builder: (context, double value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF20D4A7).withOpacity(0.1),
+                            Colors.white,
+                            const Color(0xFF20D4A7).withOpacity(0.05),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF20D4A7).withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.8),
+                            blurRadius: 10,
+                            offset: const Offset(-5, -5),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => _showPendingLeaveDetailsPage(leave),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            child: FutureBuilder<List<dynamic>>(
+                              future: Future.wait([
+                                _getEmployeeName(leave['employeeId'] ?? ''),
+                                _getTeamName(leave['teamId'] ?? ''),
+                              ]),
+                              builder: (context, snapshot) {
+                                final employeeName = snapshot.hasData
+                                    ? snapshot.data![0] as String
+                                    : leave['employeeId'];
+                                final teamName = snapshot.hasData
+                                    ? snapshot.data![1] as String
+                                    : leave['teamId'];
+                                final leaveType = leave['reason'] ?? 'N/A';
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius: BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF20D4A7).withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                employeeName,
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                teamName,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: Colors.orange.withOpacity(0.3),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'PENDING',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.orange,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.event_note,
+                                          color: Colors.grey[600],
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Leave Type: $leaveType',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius: BorderRadius.circular(25),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF20D4A7).withOpacity(0.3),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => _showPendingLeaveDetailsPage(leave),
+                                            icon: const Icon(
+                                              Icons.visibility,
+                                              color: Colors.white,
+                                              size: 18,
+                                            ),
+                                            label: const Text(
+                                              'View Details',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.transparent,
+                                              shadowColor: Colors.transparent,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(25),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         );
@@ -317,39 +591,165 @@ class _LeaveApprovalsPageState extends State<LeaveApprovalsPage> {
     );
   }
 
-  // Display history leave tile
-  // History view is handled by a separate parent page
-
-  // History view is handled by a separate parent page
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_errorMessage != null) {
-      return Center(child: Text('Error:\n$_errorMessage'));
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
     }
 
-    return Column(
-      children: [
-        // Removed refresh button as data updates in real-time from Firestore
-        Expanded(
-          child: _pendingLeaves.isEmpty
-              ? const Center(child: Text('No pending leave approvals'))
-              : ListView.builder(
-                  itemCount: _pendingLeaves.length,
-                  itemBuilder: (context, index) {
-                    final leave = _pendingLeaves[index];
-                    return _leaveTile(leave);
-                  },
-                ),
+    if (_errorMessage != null) {
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
         ),
-      ],
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Error',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(25),
+                  topRight: Radius.circular(25),
+                ),
+              ),
+              child: _pendingLeaves.isEmpty
+                  ? FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF20D4A7).withOpacity(0.1),
+                                    Colors.white,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(50),
+                              ),
+                              child: const Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: Color(0xFF20D4A7),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'No Pending Leave Approvals',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'All caught up! No leave requests need your attention.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _pendingLeaves.length,
+                      itemBuilder: (context, index) {
+                        final leave = _pendingLeaves[index];
+                        return _leaveTile(leave, index);
+                      },
+                    ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+// Enhanced LeaveDetailsPage with animations and gradients
 class LeaveDetailsPage extends StatefulWidget {
   final Map<String, dynamic> leave;
   final Future<String> Function(String) getEmployeeName;
@@ -368,13 +768,37 @@ class LeaveDetailsPage extends StatefulWidget {
   State<LeaveDetailsPage> createState() => _LeaveDetailsPageState();
 }
 
-class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
+class _LeaveDetailsPageState extends State<LeaveDetailsPage>
+    with TickerProviderStateMixin {
   late Future<Map<String, dynamic>> _detailsFuture;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _detailsFuture = _getLeaveDetails(widget.leave);
+    
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    ));
+    
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
   }
 
   Future<Map<String, dynamic>> _getLeaveDetails(
@@ -384,16 +808,19 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
     final teamId = leave['teamId'] ?? '';
     String employeeName = employeeId;
     String teamName = teamId;
+    
     try {
       employeeName = await widget.getEmployeeName(employeeId);
     } catch (e) {
       employeeName = 'Not found ($employeeId)';
     }
+    
     try {
       teamName = await widget.getTeamName(teamId);
     } catch (e) {
       teamName = 'Not found ($teamId)';
     }
+    
     String formatDate(dynamic ts) {
       if (ts == null) return 'N/A';
       if (ts is String && ts.isEmpty) return 'N/A';
@@ -403,22 +830,17 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
       return ts.toString();
     }
 
-    // Parse number of days
     int numberOfDays = 1;
     if (leave['numberOfDays'] != null) {
       numberOfDays = int.tryParse(leave['numberOfDays'].toString()) ?? 1;
     }
 
-    // Calculate leave end date
     String leaveEndDate = 'N/A';
     DateTime? endDate;
 
-    // First check if endDate field exists (used in history view)
     if (leave['endDate'] != null) {
       leaveEndDate = formatDate(leave['endDate']);
-    }
-    // Otherwise calculate from endDateTime
-    else if (leave['endDateTime'] != null) {
+    } else if (leave['endDateTime'] != null) {
       if (leave['endDateTime'] is Timestamp) {
         endDate = (leave['endDateTime'] as Timestamp).toDate();
       } else if (leave['endDateTime'] is DateTime) {
@@ -431,19 +853,14 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
         if (numberOfDays > 1) {
           endDate = endDate.add(Duration(days: numberOfDays - 1));
         }
-        // For single day leave, just use the end date as is
         leaveEndDate = formatDate(endDate);
       }
     }
 
-    // Calculate start date
     String leaveStartDate = 'N/A';
-    // First check if startDate field exists (used in history view)
     if (leave['startDate'] != null) {
       leaveStartDate = formatDate(leave['startDate']);
-    } 
-    // If not available but we have endDate for single day leave
-    else if (numberOfDays == 1 && leaveEndDate != 'N/A') {
+    } else if (numberOfDays == 1 && leaveEndDate != 'N/A') {
       leaveStartDate = leaveEndDate;
     }
 
@@ -461,193 +878,629 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Leave Details'),
-        // Don't include tab bar here
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _detailsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Failed to load leave details: ${snapshot.error}'),
-            );
-          }
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('No leave details found.'));
-          }
-          final details = snapshot.data!;
-          // Extract all fields
-          final leaveType = details['reason'] ?? 'N/A';
-          final status =
-              widget.leave['status']?.toString().toUpperCase() ?? 'PENDING';
-          final startDate = details['startDate'] ?? 'N/A';
-          final endDate = details['endDate'] ?? 'N/A';
-          final numDays = widget.leave['numberOfDays']?.toString() ?? 'N/A';
-          final leaveDuration =
-              widget.leave['leaveDuration']?.toString() ?? 'N/A';
-          final appliedAt = details['appliedAt'] ?? 'N/A';
-          final explanation = widget.leave['explanation'] ?? 'N/A';
-          return Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: ListView(
-              children: [
-                // Leave Type and Status
-                Text(
-                  leaveType,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom App Bar
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 12,
-                      ),
                       decoration: BoxDecoration(
-                        color: status == 'PENDING'
-                            ? Colors.orange
-                            : status == 'APPROVED'
-                            ? Colors.green
-                            : Colors.red,
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        status,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Leave Details',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                // Leave Duration Section
-                const Text(
-                  'Leave Duration',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              // Content
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(25),
+                      topRight: Radius.circular(25),
+                    ),
+                  ),
+                  child: FutureBuilder<Map<String, dynamic>>(
+                    future: _detailsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF20D4A7)),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Container(
+                            margin: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Failed to load leave details',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${snapshot.error}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      if (!snapshot.hasData || snapshot.data == null) {
+                        return Center(
+                          child: Container(
+                            margin: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.info_outline,
+                                  color: Colors.grey,
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No leave details found',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[800],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final details = snapshot.data!;
+                      final leaveType = details['reason'] ?? 'N/A';
+                      final status = widget.leave['status']?.toString().toUpperCase() ?? 'PENDING';
+                      final startDate = details['startDate'] ?? 'N/A';
+                      final endDate = details['endDate'] ?? 'N/A';
+                      final numDays = widget.leave['numberOfDays']?.toString() ?? 'N/A';
+                      final leaveDuration = widget.leave['leaveDuration']?.toString() ?? 'N/A';
+                      final appliedAt = details['appliedAt'] ?? 'N/A';
+                      final explanation = widget.leave['explanation'] ?? 'N/A';
+
+                      return FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header Section
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFF20D4A7).withOpacity(0.1),
+                                      Colors.white,
+                                      const Color(0xFF20D4A7).withOpacity(0.05),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF20D4A7).withOpacity(0.1),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius: BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF20D4A7).withOpacity(0.3),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.event_note,
+                                            color: Colors.white,
+                                            size: 32,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                leaveType,
+                                                style: const TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  vertical: 6,
+                                                  horizontal: 16,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: status == 'PENDING'
+                                                      ? Colors.orange.withOpacity(0.1)
+                                                      : status == 'APPROVED'
+                                                          ? Colors.green.withOpacity(0.1)
+                                                          : Colors.red.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  border: Border.all(
+                                                    color: status == 'PENDING'
+                                                        ? Colors.orange
+                                                        : status == 'APPROVED'
+                                                            ? Colors.green
+                                                            : Colors.red,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  status,
+                                                  style: TextStyle(
+                                                    color: status == 'PENDING'
+                                                        ? Colors.orange
+                                                        : status == 'APPROVED'
+                                                            ? Colors.green
+                                                            : Colors.red,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Leave Duration Section
+                              _buildSection(
+                                'Leave Duration',
+                                Icons.calendar_today,
+                                [
+                                  _buildDetailRow('Start Date', startDate),
+                                  _buildDetailRow('End Date', endDate),
+                                  _buildDetailRow('Number of Days', '$numDays day(s)'),
+                                  _buildDetailRow('Leave Duration', '$leaveDuration day(s)'),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Rejection Remarks Section (if rejected)
+                              if (widget.leave['status'] == 'rejected' && 
+                                  widget.leave['rejectionRemarks'] != null && 
+                                  widget.leave['rejectionRemarks'].toString().isNotEmpty)
+                                Column(
+                                  children: [
+                                    _buildRejectionSection(widget.leave['rejectionRemarks']),
+                                    const SizedBox(height: 24),
+                                  ],
+                                ),
+
+                              // Application Details Section
+                              _buildSection(
+                                'Application Details',
+                                Icons.info_outline,
+                                [
+                                  _buildDetailRow('Applied At', appliedAt),
+                                  _buildDetailRow('Employee', details['employeeName'] ?? 'N/A'),
+                                  _buildDetailRow('Team', details['teamName'] ?? 'N/A'),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Explanation Section
+                              _buildExplanationSection(explanation),
+                              const SizedBox(height: 32),
+
+                              // Action Buttons
+                              if (widget.onStatusUpdate != null && 
+                                  (widget.leave['status'] == null || 
+                                   widget.leave['status'] == 'pending' || 
+                                   widget.leave['status'].toString().toLowerCase() == 'pending'))
+                                _buildActionButtons(),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                const SizedBox(height: 8),
-                _buildDetailRow('Start Date', startDate),
-                _buildDetailRow('End Date', endDate),
-                _buildDetailRow('Number of Days', '$numDays day(s)'),
-                _buildDetailRow('Leave Duration', '$leaveDuration day(s)'),
-                const SizedBox(height: 24),
-                if (widget.leave['status'] == 'rejected' && widget.leave['rejectionRemarks'] != null && widget.leave['rejectionRemarks'].toString().isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Rejection Remarks',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          widget.leave['rejectionRemarks'] ?? '',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, IconData icon, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white,
+            const Color(0xFF20D4A7).withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF20D4A7).withOpacity(0.1),
+                      const Color(0xFF20D4A7).withOpacity(0.05),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                // Application Details Section
-                const Text(
-                  'Application Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 8),
-                _buildDetailRow('Applied At', appliedAt),
-                const SizedBox(height: 24),
-                // Explanation Section
-                const Text(
-                  'Explanation',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF20D4A7),
+                  size: 20,
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    explanation,
-                    style: const TextStyle(fontSize: 16),
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                const SizedBox(height: 32),
-                // Display rejection reason (if exists and status is rejected)
-                if (widget.leave['status'] == 'rejected' && 
-                    widget.leave['rejectionRemarks'] != null && 
-                    widget.leave['rejectionRemarks'].toString().isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Rejection Reason',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          widget.leave['rejectionRemarks'] ?? '',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRejectionSection(String rejectionRemarks) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.red.shade50,
+            Colors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.red.shade200,
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.cancel_outlined,
+                  color: Colors.red.shade600,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Rejection Remarks',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            rejectionRemarks,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.red.shade600,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExplanationSection(String explanation) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white,
+            const Color(0xFF20D4A7).withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF20D4A7).withOpacity(0.1),
+                      const Color(0xFF20D4A7).withOpacity(0.05),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                // Display action buttons only if onStatusUpdate is provided and leave is pending
-                if (widget.onStatusUpdate != null && 
-                    (widget.leave['status'] == null || widget.leave['status'] == 'pending' || widget.leave['status'].toString().toLowerCase() == 'pending'))
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => widget.onStatusUpdate?.call('approved'),
-                        child: const Text('Approve'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => widget.onStatusUpdate?.call('rejected'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        child: const Text('Reject'),
-                      ),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.description_outlined,
+                  color: Color(0xFF20D4A7),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Explanation',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            explanation,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF20D4A7), Color(0xFF1AB394)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF20D4A7).withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
-          );
-        },
-      ),
+            child: ElevatedButton.icon(
+              onPressed: () => widget.onStatusUpdate?.call('approved'),
+              icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+              label: const Text(
+                'Approve',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Colors.red, Colors.redAccent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: () => widget.onStatusUpdate?.call('rejected'),
+              icon: const Icon(Icons.cancel_outlined, color: Colors.white),
+              label: const Text(
+                'Reject',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDetailRow(String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -655,13 +1508,19 @@ class _LeaveDetailsPageState extends State<LeaveDetailsPage> {
             width: 140,
             child: Text(
               '$title:',
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w400),
+              style: TextStyle(
+                fontWeight: FontWeight.w400,
+                color: Colors.grey[700],
+              ),
             ),
           ),
         ],
