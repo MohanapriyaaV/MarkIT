@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'attendance_report_page.dart';
 import 'team_list_page.dart';
 import 'parent_leave_approval.dart';
+import 'user_profile_page.dart';
 
 class AdminDashboard extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -579,6 +580,13 @@ class _AdminDashboardState extends State<AdminDashboard>
         'gradientColors': [const Color(0xFF0D9488), const Color(0xFF14B8A6)],
         'description': 'Manage holidays',
       },
+      // New User Profile button
+      {
+        'title': 'User Profile',
+        'icon': Icons.account_circle_outlined,
+        'gradientColors': [const Color(0xFF0F766E), const Color(0xFF0D9488)],
+        'description': 'View and edit the profile',
+      },
     ];
 
     return GridView.builder(
@@ -797,6 +805,16 @@ class _AdminDashboardState extends State<AdminDashboard>
               ).animate(animation),
               child: child,
             );
+          },
+        ),
+      );
+    } else if (functionTitle == 'User Profile') {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const UserProfilePage(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
           },
         ),
       );

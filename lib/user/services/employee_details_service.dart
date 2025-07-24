@@ -11,7 +11,7 @@ class EmployeeService {
       await _firestore
           .collection(_collectionName)
           .doc(employee.empId)
-          .set(employee.toMap(), SetOptions(merge: true));
+          .set(employee.toMap(),     SetOptions(merge: true));
       return true;
     } catch (e) {
       print('Error saving employee data: $e');
@@ -109,6 +109,74 @@ class EmployeeService {
     } catch (e) {
       print('Error getting employee by userId: $e');
       return null;
+    }
+  }
+
+  // Fetch all employees
+  Future<List<Employee>> getAllEmployees() async {
+    try {
+      QuerySnapshot snapshot = await _firestore.collection(_collectionName).get();
+      return snapshot.docs.map((doc) => Employee.fromMap(doc.data() as Map<String, dynamic>)).toList();
+    } catch (e) {
+      print('Error fetching all employees: $e');
+      return [];
+    }
+  }
+
+  // Update employee data with edit log
+  Future<bool> updateEmployeeWithLog(String empId, Map<String, dynamic> updates, String editedBy) async {
+    try {
+      updates['editedBy'] = editedBy;
+      updates['editedAt'] = DateTime.now().toIso8601String();
+      await _firestore.collection(_collectionName).doc(empId).update(updates);
+      return true;
+    } catch (e) {
+      print('Error updating employee with log: $e');
+      return false;
+    }
+  }
+
+  // Utility: Update all employees' session times to HH:mm:ss format
+  Future<void> updateAllSessionTimesToHHMMSSFormat() async {
+    try {
+      QuerySnapshot snapshot = await _firestore.collection(_collectionName).get();
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        Map<String, dynamic>? shiftTiming = data['shiftTiming'] != null ? Map<String, dynamic>.from(data['shiftTiming']) : null;
+        if (shiftTiming != null) {
+          bool needsUpdate = false;
+          for (var key in ['session1Login', 'session1Logout', 'session2Login', 'session2Logout']) {
+            var value = shiftTiming[key];
+            if (value != null && value is String) {
+              final parts = value.split(":");
+              if (parts.length == 2) {
+                shiftTiming[key] = value + ":00";
+                needsUpdate = true;
+              } else if (parts.length != 3) {
+                // Try DateTime parse fallback
+                final dt = DateTime.tryParse(value);
+                if (dt != null) {
+                  shiftTiming[key] = dt.hour.toString().padLeft(2, '0') + ':' + dt.minute.toString().padLeft(2, '0') + ':' + dt.second.toString().padLeft(2, '0');
+                  needsUpdate = true;
+                }
+              }
+            } else if (value != null && value is Map && value.containsKey('seconds')) {
+              final seconds = value['seconds'];
+              if (seconds is int) {
+                final dt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+                shiftTiming[key] = dt.hour.toString().padLeft(2, '0') + ':' + dt.minute.toString().padLeft(2, '0') + ':' + dt.second.toString().padLeft(2, '0');
+                needsUpdate = true;
+              }
+            }
+          }
+          if (needsUpdate) {
+            await _firestore.collection(_collectionName).doc(doc.id).update({'shiftTiming': shiftTiming});
+          }
+        }
+      }
+      print('All session times updated to HH:mm:ss format.');
+    } catch (e) {
+      print('Error updating session times: $e');
     }
   }
 }

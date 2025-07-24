@@ -6,6 +6,7 @@ import 'user/frontend/login.dart';
 import 'user/frontend/dashboard.dart';
 import 'user/frontend/signup_page.dart'; // ✅ Import signup page (used in routes)
 import 'user/frontend/forgot_password.dart';
+import 'admin/frontend/user_profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,7 @@ class MyApp extends StatelessWidget {
         '/dashboard': (context) => const DashboardPage(),
         '/signup': (context) => const SimpleSignUpPage(),
         '/forgot-password': (context) => const ForgotPasswordPage(),
+        '/admin-user-profile': (context) => const UserProfilePage(),
       },
     );
   }
