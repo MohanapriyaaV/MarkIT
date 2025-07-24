@@ -42,7 +42,7 @@ class _SelectMembersPageState extends State<SelectMembersPage>
     'General Project Manager',
   ];
 
-  Set<String> alreadyAssignedUserIds = {};
+  // Set<String> alreadyAssignedUserIds = {}; // No longer needed
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -105,37 +105,13 @@ class _SelectMembersPageState extends State<SelectMembersPage>
         _managerHRId = widget.currentUserId;
         break;
       case 'General Project Manager':
-        _generalProjectManagerId = widget.currentUserId;
+    // _loadAlreadyAssignedUsers(); // Remove constraint logic
         break;
     }
   }
 
   void _loadAlreadyAssignedUsers() async {
-    final teamsSnapshot = await FirebaseFirestore.instance
-        .collection('teams')
-        .get();
-    final Set<String> assignedUsers = {};
-    for (var doc in teamsSnapshot.docs) {
-      final data = doc.data();
-      assignedUsers.addAll(
-        [
-          data['projectManagerId'],
-          data['assistantProjectManagerId'],
-          data['projectLeadId'],
-          data['assistantManagerHRId'],
-          data['managerHRId'],
-          data['generalProjectManagerId'],
-          ...List<String>.from(data['members'] ?? []),
-          ...List<String>.from(data['admins'] ?? []),
-        ].whereType<String>(),
-      );
-    }
-    assignedUsers.remove(widget.currentUserId);
-    if (mounted) {
-      setState(() {
-        alreadyAssignedUserIds = assignedUsers;
-      });
-    }
+    // Removed: No longer filter out already assigned users
   }
 
   List<DocumentSnapshot> _filterByRole(String role) {
@@ -143,8 +119,7 @@ class _SelectMembersPageState extends State<SelectMembersPage>
         .where(
           (doc) =>
               doc['role'] == role &&
-              doc.id != widget.currentUserId &&
-              !alreadyAssignedUserIds.contains(doc.id),
+              doc.id != widget.currentUserId,
         )
         .toList();
   }
@@ -512,11 +487,9 @@ class _SelectMembersPageState extends State<SelectMembersPage>
                       final otherOptions = allUsers.where((doc) {
                         final id = doc.id;
                         final role = doc['role'];
-                        final isAssigned = alreadyAssignedUserIds.contains(id);
                         final isAdmin = adminRoles.contains(role);
 
-                        return !isAssigned &&
-                            id != widget.currentUserId &&
+                        return id != widget.currentUserId &&
                             role != 'Director' &&
                             id != _projectManagerId &&
                             id != _assistantProjectManagerId &&

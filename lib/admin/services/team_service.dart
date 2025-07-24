@@ -17,6 +17,8 @@ class TeamService {
     ].whereType<String>().toList();
     final teamMap = updatedTeam.toMap();
     teamMap['admins'] = admins;
+    // Set adminId to the director's UID (the creator of the team)
+    teamMap['adminId'] = updatedTeam.adminId;
     await teamRef.set(teamMap);
     await _updateMembers(updatedTeam);
   }
@@ -35,6 +37,8 @@ class TeamService {
     ].whereType<String>().toList();
     final teamMap = team.toMap();
     teamMap['admins'] = admins;
+    // Set adminId to the director's UID (the creator of the team)
+    teamMap['adminId'] = team.adminId;
     await _firestore.collection('teams').doc(team.teamId).update(teamMap);
     await _updateMembers(team);
   }
