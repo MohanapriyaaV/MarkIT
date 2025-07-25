@@ -5,6 +5,11 @@ class TeamService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> createTeam(TeamModel team) async {
+    // Check for duplicate members in other teams
+    final duplicateMembers = await _findDuplicateMembers(team.members);
+    if (duplicateMembers.isNotEmpty) {
+      throw Exception("The following members are already assigned to another team: ${duplicateMembers.join(", ")}");
+    }
     final teamRef = _firestore.collection('teams').doc();
     final updatedTeam = team.copyWith(teamId: teamRef.id);
     // Build admins array from all 5 admin roles (skip nulls)
@@ -14,7 +19,8 @@ class TeamService {
       updatedTeam.projectLeadId,
       updatedTeam.assistantManagerHRId,
       updatedTeam.managerHRId,
-    ].whereType<String>().toList();
+      updatedTeam.adminId, // Add director's UID to admins array
+    ].whereType<String>().toSet().toList(); // Use set to avoid duplicates
     final teamMap = updatedTeam.toMap();
     teamMap['admins'] = admins;
     // Set adminId to the director's UID (the creator of the team)
@@ -24,6 +30,11 @@ class TeamService {
   }
 
   Future<void> updateTeam(TeamModel team) async {
+    // Check for duplicate members in other teams (excluding current team)
+    final duplicateMembers = await _findDuplicateMembers(team.members, excludeTeamId: team.teamId);
+    if (duplicateMembers.isNotEmpty) {
+      throw Exception("The following members are already assigned to another team: ${duplicateMembers.join(", ")}");
+    }
     if (team.teamId.isEmpty) {
       throw Exception("Team ID cannot be empty for update.");
     }
@@ -34,7 +45,8 @@ class TeamService {
       team.projectLeadId,
       team.assistantManagerHRId,
       team.managerHRId,
-    ].whereType<String>().toList();
+      team.adminId, // Add director's UID to admins array
+    ].whereType<String>().toSet().toList(); // Use set to avoid duplicates
     final teamMap = team.toMap();
     teamMap['admins'] = admins;
     // Set adminId to the director's UID (the creator of the team)
@@ -111,5 +123,17 @@ class TeamService {
         team.generalProjectManagerId == userId ||
         team.assistantManagerHRId == userId ||
         team.managerHRId == userId;
+  }
+
+  Future<List<String>> _findDuplicateMembers(List<String> members, {String? excludeTeamId}) async {
+    final snapshot = await _firestore.collection('teams').get();
+    final Set<String> assignedMembers = {};
+    for (final doc in snapshot.docs) {
+      if (excludeTeamId != null && doc.id == excludeTeamId) continue;
+      final data = doc.data();
+      final teamMembers = List<String>.from(data['members'] ?? []);
+      assignedMembers.addAll(teamMembers);
+    }
+    return members.where((m) => assignedMembers.contains(m)).toList();
   }
 }

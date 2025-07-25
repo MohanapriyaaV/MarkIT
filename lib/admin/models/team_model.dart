@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TeamModel {
+  final List<String> admins;
   final String teamId;
   final String teamName;
   final String adminId;
@@ -38,6 +39,7 @@ class TeamModel {
     this.generalProjectManagerId,
     this.assistantManagerHRId,
     this.managerHRId,
+    required this.admins,
     required this.members,
     required this.session1Login,
     required this.session1Logout,
@@ -61,6 +63,7 @@ class TeamModel {
       'generalProjectManagerId': generalProjectManagerId,
       'assistantManagerHRId': assistantManagerHRId,
       'managerHRId': managerHRId,
+      'admins': admins,
       'members': members,
       'session1Login': Timestamp.fromDate(session1Login),
       'session1Logout': Timestamp.fromDate(session1Logout),
@@ -85,6 +88,7 @@ class TeamModel {
       generalProjectManagerId: map['generalProjectManagerId'],
       assistantManagerHRId: map['assistantManagerHRId'],
       managerHRId: map['managerHRId'],
+      admins: List<String>.from(map['admins'] ?? []),
       members: List<String>.from(map['members'] ?? []),
       session1Login: (map['session1Login'] as Timestamp?)?.toDate() ?? DateTime.now(),
       session1Logout: (map['session1Logout'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -107,6 +111,7 @@ class TeamModel {
     String? generalProjectManagerId,
     String? assistantManagerHRId,
     String? managerHRId,
+    List<String>? admins,
     List<String>? members,
     DateTime? session1Login,
     DateTime? session1Logout,
@@ -127,6 +132,7 @@ class TeamModel {
       generalProjectManagerId: generalProjectManagerId ?? this.generalProjectManagerId,
       assistantManagerHRId: assistantManagerHRId ?? this.assistantManagerHRId,
       managerHRId: managerHRId ?? this.managerHRId,
+      admins: admins ?? this.admins,
       members: members ?? this.members,
       session1Login: session1Login ?? this.session1Login,
       session1Logout: session1Logout ?? this.session1Logout,

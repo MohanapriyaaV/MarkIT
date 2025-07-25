@@ -236,44 +236,34 @@ class _CreateTeamPageState extends State<CreateTeamPage>
             .where((id) => !adminIds.contains(id))
             .toList();
 
-        final teamData = {
-          'teamName': _teamNameController.text.trim(),
-          'adminId': currentUser.uid,
-          'teamType': _teamType,
-          'projectManagerId': isSuperAdmin
-              ? null
-              : (_teamType == 'Production Team' ? _projectManagerId : null),
-          'assistantProjectManagerId': isSuperAdmin
-              ? null
-              : (_teamType == 'Production Team'
-                    ? _assistantProjectManagerId
-                    : null),
-          'projectLeadId': isSuperAdmin
-              ? null
-              : (_teamType == 'Production Team' ? _projectLeadId : null),
-          'generalProjectManagerId': isSuperAdmin
-              ? null
-              : (_teamType == 'General Team' ? _generalProjectManagerId : null),
-          'assistantManagerHRId': isSuperAdmin ? null : _assistantManagerHRId,
-          'managerHRId': isSuperAdmin ? null : _managerHRId,
-          'members': memberIds,
-          'admins': adminIds,
-          'session1Login': session1Login,
-          'session1Logout': session1Logout,
-          'session2Login': session2Login,
-          'session2Logout': session2Logout,
-          'graceTimeInMinutes': int.tryParse(_graceTimeController.text) ?? 0,
-          'noLOPDays': int.tryParse(_noLOPController.text) ?? 0,
-          'emergencyLeaves': int.tryParse(_emergencyLeaveController.text) ?? 2,
-        };
 
+        final teamModel = TeamModel(
+          teamId: isEditMode ? widget.editTeam!.teamId : '',
+          teamName: _teamNameController.text.trim(),
+          adminId: currentUser.uid,
+          teamType: _teamType,
+          projectManagerId: isSuperAdmin ? null : (_teamType == 'Production Team' ? _projectManagerId : null),
+          assistantProjectManagerId: isSuperAdmin ? null : (_teamType == 'Production Team' ? _assistantProjectManagerId : null),
+          projectLeadId: isSuperAdmin ? null : (_teamType == 'Production Team' ? _projectLeadId : null),
+          generalProjectManagerId: isSuperAdmin ? null : (_teamType == 'General Team' ? _generalProjectManagerId : null),
+          assistantManagerHRId: isSuperAdmin ? null : _assistantManagerHRId,
+          managerHRId: isSuperAdmin ? null : _managerHRId,
+          members: memberIds,
+          admins: adminIds,
+          session1Login: session1Login,
+          session1Logout: session1Logout,
+          session2Login: session2Login,
+          session2Logout: session2Logout,
+          graceTimeInMinutes: int.tryParse(_graceTimeController.text) ?? 0,
+          noLOPDays: int.tryParse(_noLOPController.text) ?? 0,
+          emergencyLeaves: int.tryParse(_emergencyLeaveController.text) ?? 2,
+        );
+
+        final TeamService _teamService = TeamService();
         if (isEditMode) {
-          await FirebaseFirestore.instance
-              .collection('teams')
-              .doc(widget.editTeam!.teamId)
-              .update(teamData);
+          await _teamService.updateTeam(teamModel);
         } else {
-          await FirebaseFirestore.instance.collection('teams').add(teamData);
+          await _teamService.createTeam(teamModel);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

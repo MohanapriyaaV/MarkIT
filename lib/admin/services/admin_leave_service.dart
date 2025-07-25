@@ -162,7 +162,12 @@ class AdminLeaveService {
   Future<List<Map<String, dynamic>>> fetchTeamsForAdmin(String adminUid) async {
     final teamsSnapshot = await _firestore
         .collection('teams')
-        .where('admins', arrayContains: adminUid)
+        .where(
+          Filter.or(
+            Filter('admins', arrayContains: adminUid),
+            Filter('adminId', isEqualTo: adminUid),
+          ),
+        )
         .get();
     return teamsSnapshot.docs.map((doc) {
       final data = doc.data();
